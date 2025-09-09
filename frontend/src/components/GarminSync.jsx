@@ -9,10 +9,16 @@ const GarminSync = () => {
     setSyncing(true);
     setError(null);
     try {
+      // Check API key configuration
+      if (!process.env.REACT_APP_API_KEY) {
+        throw new Error('API key missing - check environment configuration');
+      }
+
       const response = await fetch('/api/workouts/sync', {
         method: 'POST',
         headers: {
-          'X-API-Key': process.env.REACT_APP_API_KEY
+          'X-API-Key': process.env.REACT_APP_API_KEY,
+          'Content-Type': 'application/json'
         }
       });
       
@@ -105,10 +111,28 @@ const GarminSync = () => {
               </>
             )}
             
-            {syncStatus.error_message && (
+            <div className="text-gray-600">Last Updated:</div>
+            <div className="text-gray-800">
+              {syncStatus.last_sync_time
+                ? new Date(syncStatus.last_sync_time).toLocaleTimeString([], {
+                    hour: '2-digit', minute: '2-digit', hour12: true
+                  })
+                : 'Never'}
+            </div>
+            
+            {syncStatus.activities_synced > 0 && (
               <>
-                <div className="text-gray-600">Error:</div>
-                <div className="text-red-600">{syncStatus.error_message}</div>
+                <div className="text-gray-600">New Activities:</div>
+                <div className="text-green-600 font-medium">{syncStatus.activities_synced}</div>
+              </>
+            )}
+            
+            {syncStatus.warnings?.length > 0 && (
+              <>
+                <div className="text-gray-600">Warnings:</div>
+                <div className="text-yellow-600 text-sm">
+                  {syncStatus.warnings.join(', ')}
+                </div>
               </>
             )}
           </div>

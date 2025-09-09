@@ -11,4 +11,5 @@ class Plan(BaseModel):
     parent_plan_id = Column(Integer, ForeignKey('plans.id'), nullable=True)
 
     parent_plan = relationship("Plan", remote_side="Plan.id", backref="child_plans")
+    analyses = relationship("Analysis", back_populates="plan")
     workouts = relationship("Workout", back_populates="plan", cascade="all, delete-orphan")

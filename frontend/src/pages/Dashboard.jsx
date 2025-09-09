@@ -1,141 +1,169 @@
-import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useState } from 'react';
+import GarminSync from '../components/garmin/GarminSync';
+import WorkoutChart from '../components/analysis/WorkoutCharts';
+import PlanTimeline from '../components/plans/PlanTimeline';
+import { useAuth } from '../context/AuthContext';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 const Dashboard = () => {
-  const [dashboardData, setDashboardData] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+  const { apiKey, loading: apiLoading } = useAuth();
+  const [recentWorkouts, setRecentWorkouts] = useState([]);
+  const [currentPlan, setCurrentPlan] = useState(null);
+  const [stats, setStats] = useState({ totalWorkouts: 0, totalDistance: 0 });
+  const [healthStatus, setHealthStatus] = useState(null);
+  const [localLoading, setLocalLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        const response = await fetch('/api/dashboard', {
-          headers: {
-            'X-API-Key': process.env.REACT_APP_API_KEY
-          }
-        })
+        const [workoutsRes, planRes, statsRes, healthRes] = await Promise.all([
+          fetch('/api/workouts?limit=3', {
+            headers: { 'X-API-Key': apiKey }
+          }),
+          fetch('/api/plans/active', {
+            headers: { 'X-API-Key': apiKey }
+          }),
+          fetch('/api/stats', {
+            headers: { 'X-API-Key': apiKey }
+          }),
+          fetch('/api/health', {
+            headers: { 'X-API-Key': apiKey }
+          })
+        ]);
+
+        const errors = [];
+        if (!workoutsRes.ok) errors.push('Failed to fetch workouts');
+        if (!planRes.ok) errors.push('Failed to fetch plan');
+        if (!statsRes.ok) errors.push('Failed to fetch stats');
+        if (!healthRes.ok) errors.push('Failed to fetch health status');
         
-        if (!response.ok) {
-          throw new Error(`Dashboard load failed: ${response.statusText}`)
-        }
-        
-        const data = await response.json()
-        setDashboardData(data)
-        setError(null)
+        if (errors.length > 0) throw new Error(errors.join(', '));
+
+        const [workoutsData, planData, statsData, healthData] = await Promise.all([
+          workoutsRes.json(),
+          planRes.json(),
+          statsRes.json(),
+          healthRes.json()
+        ]);
+
+        setRecentWorkouts(workoutsData.workouts || []);
+        setCurrentPlan(planData);
+        setStats(statsData.workouts || { totalWorkouts: 0, totalDistance: 0 });
+        setHealthStatus(healthData);
       } catch (err) {
-        console.error('Dashboard error:', err)
-        setError(err.message)
+        setError(err.message);
       } finally {
-        setLoading(false)
+        setLocalLoading(false);
       }
-    }
+    };
 
-    fetchDashboardData()
-  }, [])
+    fetchDashboardData();
+  }, [apiKey]);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading your training dashboard...</p>
-        </div>
-      </div>
-    )
-  }
+  if (localLoading || apiLoading) return <LoadingSpinner />;
+  if (error) return <div className="p-6 text-red-500">{error}</div>;
 
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center text-red-600">
-          <h2 className="text-xl font-semibold">Error loading dashboard</h2>
-          <p className="mt-2">{error}</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-          >
-            Try Again
-          </button>
-        </div>
-      </div>
-    )
-  }
+  // Calculate total distance in km
+  const totalDistanceKm = (stats.totalDistance / 1000).toFixed(0);
 
   return (
-    <div className="dashboard bg-gray-50 min-h-screen p-4 md:p-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Metrics Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white p-4 rounded-lg shadow">
-            <h3 className="text-gray-500 text-sm font-medium">Weekly Volume</h3>
-            <p className="text-2xl font-bold text-gray-900">
-              {dashboardData.metrics.weekly_volume?.toFixed(1) || 0} hours
-            </p>
+    <div className="p-6 max-w-7xl mx-auto space-y-8">
+      <h1 className="text-3xl font-bold">Training Dashboard</h1>
+      
+      <div className="mb-8">
+        <GarminSync apiKey={apiKey} />
+      </div>
+
+      {/* Stats Summary Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="bg-white p-4 rounded-lg shadow-md">
+          <h3 className="text-sm font-medium text-gray-600">Total Workouts</h3>
+          <p className="text-2xl font-bold">{stats.totalWorkouts}</p>
+        </div>
+        <div className="bg-white p-4 rounded-lg shadow-md">
+          <h3 className="text-sm font-medium text-gray-600">Total Distance</h3>
+          <p className="text-2xl font-bold">{totalDistanceKm} km</p>
+        </div>
+        <div className="bg-white p-4 rounded-lg shadow-md">
+          <h3 className="text-sm font-medium text-gray-600">Current Plan</h3>
+          <p className="text-2xl font-bold">
+            {currentPlan ? `v${currentPlan.version}` : 'None'}
+          </p>
+        </div>
+        <div className="bg-white p-4 rounded-lg shadow-md">
+          <h3 className="text-sm font-medium text-gray-600">System Status</h3>
+          <div className="flex items-center">
+            <div className={`w-3 h-3 rounded-full mr-2 ${
+              healthStatus?.status === 'healthy' ? 'bg-green-500' : 'bg-red-500'
+            }`}></div>
+            <span className="text-xl font-bold capitalize">
+              {healthStatus?.status || 'unknown'}
+            </span>
           </div>
-          <div className="bg-white p-4 rounded-lg shadow">
-            <h3 className="text-gray-500 text-sm font-medium">Plan Progress</h3>
-            <p className="text-2xl font-bold text-gray-900">
-              {dashboardData.metrics.plan_progress || 0}%
-            </p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-6">
+        <div className="sm:col-span-2 space-y-3 sm:space-y-4 lg:space-y-6">
+          <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md">
+            <h2 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4">Performance Metrics</h2>
+            <WorkoutChart workouts={recentWorkouts} />
+          </div>
+
+          <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md">
+            <h2 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4">Recent Activities</h2>
+            {recentWorkouts.length > 0 ? (
+              <div className="space-y-4">
+                {recentWorkouts.map(workout => (
+                  <div key={workout.id} className="p-3 sm:p-4 border rounded-lg hover:bg-gray-50">
+                    <div className="flex justify-between items-center gap-2">
+                      <div>
+                        <h3 className="text-sm sm:text-base font-medium">{new Date(workout.start_time).toLocaleDateString()}</h3>
+                        <p className="text-xs sm:text-sm text-gray-600">{workout.activity_type}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm sm:text-base font-medium">{(workout.distance_m / 1000).toFixed(1)} km</p>
+                        <p className="text-xs sm:text-sm text-gray-600">{Math.round(workout.duration_seconds / 60)} mins</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-gray-500 text-center py-4">No recent activities found</div>
+            )}
           </div>
         </div>
 
-        {/* Recent Workouts */}
-        <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <h2 className="text-xl font-semibold mb-4">Recent Workouts</h2>
-          <div className="space-y-4">
-            {dashboardData.recent_workouts.map(workout => (
-              <div key={workout.id} className="border-b pb-4">
+        <div className="space-y-6">
+          <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md">
+            <h2 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4">Current Plan</h2>
+            {currentPlan ? (
+              <PlanTimeline plan={currentPlan} />
+            ) : (
+              <div className="text-gray-500 text-center py-4">No active training plan</div>
+            )}
+          </div>
+
+          <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md">
+            <h2 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4">Upcoming Workouts</h2>
+            {currentPlan?.jsonb_plan.weeks[0]?.workouts.map((workout, index) => (
+              <div key={index} className="p-2 sm:p-3 border-b last:border-b-0">
                 <div className="flex justify-between items-center">
-                  <div>
-                    <h3 className="font-medium">{new Date(workout.start_time).toLocaleDateString()}</h3>
-                    <p className="text-gray-600">{workout.activity_type}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-gray-900 font-medium">
-                      {(workout.distance_m / 1000).toFixed(1)} km
-                    </p>
-                    <p className="text-sm text-gray-500">
-                      {Math.floor(workout.duration_seconds / 60)} minutes
-                    </p>
-                  </div>
+                  <span className="capitalize">{workout.day}</span>
+                  <span className="text-xs sm:text-sm bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                    {workout.type.replace('_', ' ')}
+                  </span>
                 </div>
+                <p className="text-xs sm:text-sm text-gray-600 mt-1">{workout.description}</p>
               </div>
             ))}
           </div>
         </div>
-
-        {/* Current Plan */}
-        {dashboardData.current_plan && (
-          <div className="bg-white rounded-lg shadow p-6 mb-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold">Current Training Plan</h2>
-              <Link 
-                to={`/plans/${dashboardData.current_plan.id}`}
-                className="text-blue-500 hover:text-blue-700"
-              >
-                View Details →
-              </Link>
-            </div>
-            <div className="flex items-center">
-              <div className="flex-1">
-                <h3 className="font-medium">{dashboardData.current_plan.name}</h3>
-                <p className="text-gray-600">
-                  {dashboardData.current_plan.duration_weeks} week plan
-                </p>
-              </div>
-              <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-blue-500" 
-                  style={{ width: `${dashboardData.current_plan.progress}%` }}
-                ></div>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default Dashboard
+export default Dashboard;

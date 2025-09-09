@@ -15,7 +15,7 @@ RUN apt-get update && \
 WORKDIR /app
 
 # Install Python dependencies
-COPY backend/requirements.txt .
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Runtime stage
@@ -39,7 +39,7 @@ COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/pytho
 COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy application code
-COPY backend/ .
+COPY . .
 
 # Create entrypoint script for migration handling
 RUN echo '#!/bin/bash\n\

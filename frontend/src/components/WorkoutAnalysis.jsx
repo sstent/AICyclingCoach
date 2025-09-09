@@ -157,6 +157,45 @@ const WorkoutAnalysis = ({ workout, analysis }) => {
       )}
     </div>
   );
+
+  useEffect(() => {
+    const fetchMetrics = async () => {
+      try {
+        const response = await fetch(`/api/workouts/${workout.id}/metrics`);
+        const data = await response.json();
+        setMetrics(data);
+      } catch (err) {
+        console.error('Error fetching workout metrics:', err);
+      } finally {
+        setLoadingMetrics(false);
+      }
+    };
+
+    if (workout?.id) {
+      fetchMetrics();
+    }
+  }, [workout]);
+
+  return (
+    <div className="workout-analysis bg-white rounded-lg shadow-md p-5 space-y-6">
+      {/* Workout Summary */}
+      <div className="workout-summary border-b border-gray-200 pb-4 mb-4">
+        <h3 className="text-xl font-semibold text-gray-800">
+          {workout.activity_type || 'Cycling'} - {new Date(workout.start_time).toLocaleDateString()}
+        </h3>
+        
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3 text-sm">
+          {/* Existing metric cards */}
+        </div>
+      </div>
+
+      {/* Metrics Charts */}
+      {/* Existing chart implementation */}
+
+      {/* Analysis Content */}
+      {/* Existing analysis content */}
+    </div>
+  );
 };
 
 export default WorkoutAnalysis;

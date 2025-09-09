@@ -3,6 +3,12 @@ from typing import Optional, Dict, Any
 from datetime import datetime
 
 
+class WorkoutMetric(BaseModel):
+    timestamp: datetime
+    heart_rate: Optional[int] = None
+    power: Optional[float] = None
+    cadence: Optional[float] = None
+
 class WorkoutBase(BaseModel):
     garmin_activity_id: str
     activity_type: Optional[str] = None

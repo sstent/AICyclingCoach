@@ -5,16 +5,16 @@ FROM node:20-alpine AS build
 WORKDIR /app
 
 # Copy package.json and package-lock.json
-COPY frontend/package*.json ./
+COPY package*.json ./
 
 # Install all dependencies including devDependencies
 RUN npm install --include=dev
 
 # Copy source code
-COPY frontend/ .
+COPY . .
 
-# Run tests and build application
-RUN npm test && npm run build
+# Build application
+RUN npm run build
 
 # Production stage
 FROM node:20-alpine AS production

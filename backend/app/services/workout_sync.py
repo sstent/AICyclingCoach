@@ -1,10 +1,12 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, desc
 from app.services.garmin import GarminService, GarminAPIError, GarminAuthError
 from app.models.workout import Workout
 from app.models.garmin_sync_log import GarminSyncLog
+from app.models.garmin_sync_log import GarminSyncLog
 from datetime import datetime, timedelta
 import logging
+import asyncio
 
 logger = logging.getLogger(__name__)
 
@@ -34,11 +36,27 @@ class WorkoutSyncService:
 
             synced_count = 0
             for activity in activities:
-                if await self.activity_exists(activity['activityId']):
+                activity_id = activity['activityId']
+                if await self.activity_exists(activity_id):
                     continue
 
+                # Get full activity details with retry logic
+                max_retries = 3
+                for attempt in range(max_retries):
+                    try:
+                        details = await self.garmin_service.get_activity_details(activity_id)
+                        break
+                    except (GarminAPIError, GarminAuthError) as e:
+                        if attempt == max_retries - 1:
+                            raise
+                        await asyncio.sleep(2 ** attempt)
+                        logger.warning(f"Retrying activity details fetch for {activity_id}, attempt {attempt + 1}")
+
+                # Merge basic activity data with detailed metrics
+                full_activity = {**activity, **details}
+
                 # Parse and create workout
-                workout_data = await self.parse_activity_data(activity)
+                workout_data = await self.parse_activity_data(full_activity)
                 workout = Workout(**workout_data)
                 self.db.add(workout)
                 synced_count += 1
@@ -52,8 +70,14 @@ class WorkoutSyncService:
             logger.info(f"Successfully synced {synced_count} activities")
             return synced_count
 
+        except GarminAuthError as e:
+            sync_log.status = "auth_error"
+            sync_log.error_message = str(e)
+            await self.db.commit()
+            logger.error(f"Garmin authentication failed: {str(e)}")
+            raise
         except GarminAPIError as e:
-            sync_log.status = "error"
+            sync_log.status = "api_error"
             sync_log.error_message = str(e)
             await self.db.commit()
             logger.error(f"Garmin API error during sync: {str(e)}")
@@ -64,6 +88,15 @@ class WorkoutSyncService:
             await self.db.commit()
             logger.error(f"Unexpected error during sync: {str(e)}")
             raise
+
+    async def get_latest_sync_status(self):
+        """Get the most recent sync log entry"""
+        result = await self.db.execute(
+            select(GarminSyncLog)
+            .order_by(desc(GarminSyncLog.created_at))
+            .limit(1)
+        )
+        return result.scalar_one_or_none()
 
     async def activity_exists(self, garmin_activity_id: str) -> bool:
         """Check if activity already exists in database."""

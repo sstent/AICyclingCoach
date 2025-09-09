@@ -32,6 +32,21 @@ async def read_workout(workout_id: int, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Workout not found")
     return workout
 
+@router.get("/{workout_id}/metrics", response_model=list[schemas.WorkoutMetric])
+async def get_workout_metrics(
+    workout_id: int,
+    db: AsyncSession = Depends(get_db)
+):
+    """Get time-series metrics for a workout"""
+    workout = await db.get(Workout, workout_id)
+    if not workout:
+        raise HTTPException(status_code=404, detail="Workout not found")
+
+    if not workout.metrics:
+        return []
+        
+    return workout.metrics
+
 
 @router.post("/sync")
 async def trigger_garmin_sync(
@@ -136,3 +151,16 @@ async def approve_analysis(
 
     await db.commit()
     return {"message": "Analysis approved"}
+
+
+@router.get("/plans/{plan_id}/evolution", response_model=List[schemas.Plan])
+async def get_plan_evolution(
+    plan_id: int,
+    db: AsyncSession = Depends(get_db)
+):
+    """Get full evolution history for a plan."""
+    evolution_service = PlanEvolutionService(db)
+    plans = await evolution_service.get_plan_evolution_history(plan_id)
+    if not plans:
+        raise HTTPException(status_code=404, detail="Plan not found")
+    return plans

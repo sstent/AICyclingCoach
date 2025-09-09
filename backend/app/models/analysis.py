@@ -9,9 +9,12 @@ class Analysis(BaseModel):
 
     workout_id = Column(Integer, ForeignKey("workouts.id"), nullable=False)
     analysis_type = Column(String(50), default='workout_review')
-    jsonb_feedback = Column(JSON)  # AI-generated feedback
-    suggestions = Column(JSON)  # AI-generated suggestions
+    jsonb_feedback = Column(JSON, nullable=False)
+    suggestions = Column(JSON)
     approved = Column(Boolean, default=False)
-
+    created_plan_id = Column(Integer, ForeignKey('plans.id'))
+    approved_at = Column(DateTime(timezone=True), server_default=func.now())
+    
     # Relationships
     workout = relationship("Workout", back_populates="analyses")
+    plan = relationship("Plan", back_populates="analyses")

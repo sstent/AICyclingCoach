@@ -65,6 +65,17 @@ class AIService:
         response = await self._make_ai_request(prompt)
         return self._parse_rules_response(response)
 
+    async def evolve_plan(self, evolution_context: Dict[str, Any]) -> Dict[str, Any]:
+        """Evolve a training plan using AI based on workout analysis."""
+        prompt_template = await self.prompt_manager.get_active_prompt("plan_evolution")
+        
+        if not prompt_template:
+            raise ValueError("No active plan evolution prompt found")
+
+        prompt = prompt_template.format(**evolution_context)
+        response = await self._make_ai_request(prompt)
+        return self._parse_plan_response(response)
+
     async def _make_ai_request(self, prompt: str) -> str:
         """Make async request to OpenRouter API with retry logic."""
         async with httpx.AsyncClient() as client:
