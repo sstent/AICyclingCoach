@@ -24,6 +24,9 @@ class DatabaseManager:
     def __init__(self, backup_dir: str = "/app/data/backups"):
         self.backup_dir = Path(backup_dir)
         self.backup_dir.mkdir(parents=True, exist_ok=True)
+        self.gpx_dir = Path("/app/data/gpx")
+        self.manifest_file = self.backup_dir / "gpx_manifest.json"
+        self.encryption_key = os.getenv("BACKUP_ENCRYPTION_KEY").encode()
 
     def get_db_connection_params(self):
         """Extract database connection parameters from URL."""
@@ -39,15 +42,91 @@ class DatabaseManager:
             'database': parsed.path.lstrip('/')
         }
 
+    def _backup_gpx_files(self, backup_dir: Path) -> Optional[Path]:
+        """Backup GPX files directory"""
+        gpx_dir = Path("/app/data/gpx")
+        if not gpx_dir.exists():
+            return None
+            
+        backup_path = backup_dir / "gpx.tar.gz"
+        with tarfile.open(backup_path, "w:gz") as tar:
+            tar.add(gpx_dir, arcname="gpx")
+        return backup_path
+
+    def _backup_sessions(self, backup_dir: Path) -> Optional[Path]:
+        """Backup Garmin sessions directory"""
+        sessions_dir = Path("/app/data/sessions")
+        if not sessions_dir.exists():
+            return None
+            
+        backup_path = backup_dir / "sessions.tar.gz"
+        with tarfile.open(backup_path, "w:gz") as tar:
+            tar.add(sessions_dir, arcname="sessions")
+        return backup_path
+
+    def _generate_checksum(self, file_path: Path) -> str:
+        """Generate SHA256 checksum for a file"""
+        hash_sha256 = hashlib.sha256()
+        with open(file_path, "rb") as f:
+            for chunk in iter(lambda: f.read(4096), b""):
+                hash_sha256.update(chunk)
+        return hash_sha256.hexdigest()
+
+    def _verify_backup_integrity(self, backup_path: Path):
+        """Verify backup file integrity using checksum"""
+        checksum_file = backup_path.with_suffix('.sha256')
+        if not checksum_file.exists():
+            raise FileNotFoundError(f"Checksum file missing for {backup_path.name}")
+        
+        with open(checksum_file) as f:
+            expected_checksum = f.read().split()[0]
+        
+        actual_checksum = self._generate_checksum(backup_path)
+        if actual_checksum != expected_checksum:
+            raise ValueError(f"Checksum mismatch for {backup_path.name}")
+
     def create_backup(self, name: Optional[str] = None) -> str:
-        """Create a database backup."""
+        """Create a full system backup including database, GPX files, and sessions"""
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        backup_name = name or f"backup_{timestamp}"
-        backup_file = self.backup_dir / f"{backup_name}.sql"
+        backup_name = name or f"full_backup_{timestamp}"
+        backup_dir = self.backup_dir / backup_name
+        backup_dir.mkdir(parents=True, exist_ok=True)
 
+        try:
+            # Backup database
+            db_backup_path = self._backup_database(backup_dir)
+            
+            # Backup GPX files
+            gpx_backup_path = self._backup_gpx_files(backup_dir)
+            
+            # Backup sessions
+            sessions_backup_path = self._backup_sessions(backup_dir)
+
+            # Generate checksums for all backup files
+            for file in backup_dir.glob("*"):
+                if file.is_file():
+                    checksum = self._generate_checksum(file)
+                    with open(f"{file}.sha256", "w") as f:
+                        f.write(f"{checksum}  {file.name}")
+
+            # Verify backups
+            for file in backup_dir.glob("*"):
+                if file.is_file() and not file.name.endswith('.sha256'):
+                    self._verify_backup_integrity(file)
+
+            print(f"✅ Full backup created successfully: {backup_dir}")
+            return str(backup_dir)
+
+        except Exception as e:
+            shutil.rmtree(backup_dir, ignore_errors=True)
+            print(f"❌ Backup failed: {str(e)}")
+            raise
+
+    def _backup_database(self, backup_dir: Path) -> Path:
+        """Create database backup"""
         params = self.get_db_connection_params()
+        backup_file = backup_dir / "database.dump"
 
-        # Use pg_dump for backup
         cmd = [
             "pg_dump",
             "-h", params['host'],
@@ -56,28 +135,18 @@ class DatabaseManager:
             "-d", params['database'],
             "-f", str(backup_file),
             "--no-password",
-            "--format=custom",  # Custom format for better compression
+            "--format=custom",
             "--compress=9"
         ]
 
-        # Set password environment variable
         env = os.environ.copy()
         env['PGPASSWORD'] = params['password']
 
-        try:
-            print(f"Creating backup: {backup_file}")
-            result = subprocess.run(cmd, env=env, capture_output=True, text=True)
-
-            if result.returncode == 0:
-                print(f"✅ Backup created successfully: {backup_file}")
-                return str(backup_file)
-            else:
-                print(f"❌ Backup failed: {result.stderr}")
-                raise Exception(f"Backup failed: {result.stderr}")
-
-        except FileNotFoundError:
-            print("❌ pg_dump not found. Ensure PostgreSQL client tools are installed.")
-            raise
+        result = subprocess.run(cmd, env=env, capture_output=True, text=True)
+        if result.returncode != 0:
+            raise Exception(f"Database backup failed: {result.stderr}")
+            
+        return backup_file
 
     def restore_backup(self, backup_file: str, confirm: bool = False) -> None:
         """Restore database from backup."""
@@ -127,6 +196,80 @@ class DatabaseManager:
         except FileNotFoundError:
             print("❌ pg_restore not found. Ensure PostgreSQL client tools are installed.")
             raise
+
+    def backup_gpx_files(self, incremental: bool = True) -> Optional[Path]:
+        """Handle GPX backup creation with incremental/full strategy"""
+        try:
+            if incremental:
+                return self._incremental_gpx_backup()
+            return self._full_gpx_backup()
+        except Exception as e:
+            print(f"GPX backup failed: {str(e)}")
+            return None
+
+    def _full_gpx_backup(self) -> Path:
+        """Create full GPX backup"""
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        backup_path = self.backup_dir / f"gpx_full_{timestamp}"
+        backup_path.mkdir()
+        
+        # Copy all GPX files
+        subprocess.run(["rsync", "-a", f"{self.gpx_dir}/", f"{backup_path}/"])
+        self._encrypt_backup(backup_path)
+        return backup_path
+
+    def _incremental_gpx_backup(self) -> Optional[Path]:
+        """Create incremental GPX backup using rsync --link-dest"""
+        last_full = self._find_last_full_backup()
+        if not last_full:
+            return self._full_gpx_backup()
+
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        backup_path = self.backup_dir / f"gpx_inc_{timestamp}"
+        backup_path.mkdir()
+
+        # Use hardlinks to previous backup for incremental
+        subprocess.run([
+            "rsync", "-a",
+            "--link-dest", str(last_full),
+            f"{self.gpx_dir}/",
+            f"{backup_path}/"
+        ])
+        self._encrypt_backup(backup_path)
+        return backup_path
+
+    def _find_last_full_backup(self) -> Optional[Path]:
+        """Find most recent full backup"""
+        full_backups = sorted(self.backup_dir.glob("gpx_full_*"), reverse=True)
+        return full_backups[0] if full_backups else None
+
+    def _encrypt_backup(self, backup_path: Path):
+        """Encrypt backup directory using Fernet (AES-256-CBC with HMAC-SHA256)"""
+        from cryptography.fernet import Fernet
+        
+        fernet = Fernet(self.encryption_key)
+        
+        for file in backup_path.rglob('*'):
+            if file.is_file():
+                with open(file, 'rb') as f:
+                    data = f.read()
+                encrypted = fernet.encrypt(data)
+                with open(file, 'wb') as f:
+                    f.write(encrypted)
+
+    def decrypt_backup(self, backup_path: Path):
+        """Decrypt backup directory"""
+        from cryptography.fernet import Fernet
+        
+        fernet = Fernet(self.encryption_key)
+        
+        for file in backup_path.rglob('*'):
+            if file.is_file():
+                with open(file, 'rb') as f:
+                    data = f.read()
+                decrypted = fernet.decrypt(data)
+                with open(file, 'wb') as f:
+                    f.write(decrypted)
 
     def _recreate_database(self):
         """Drop and recreate the database."""
@@ -184,10 +327,11 @@ class DatabaseManager:
         cutoff = datetime.now() - timedelta(days=keep_days)
         removed = []
 
-        for backup in self.backup_dir.glob("*.sql"):
-            if datetime.fromtimestamp(backup.stat().st_mtime) < cutoff:
-                backup.unlink()
-                removed.append(backup.name)
+        # Clean all backup directories (full_backup_*)
+        for backup_dir in self.backup_dir.glob("full_backup_*"):
+            if backup_dir.is_dir() and datetime.fromtimestamp(backup_dir.stat().st_mtime) < cutoff:
+                shutil.rmtree(backup_dir)
+                removed.append(backup_dir.name)
 
         if removed:
             print(f"Removed {len(removed)} old backups: {', '.join(removed)}")
@@ -198,10 +342,12 @@ def main():
     if len(sys.argv) < 2:
         print("Usage: python backup_restore.py <command> [options]")
         print("Commands:")
-        print("  backup [name]          - Create a new backup")
+        print("  backup [name]          - Create a new database backup")
+        print("  gpx-backup [--full]    - Create GPX backup (incremental by default)")
         print("  restore <file> [--yes] - Restore from backup")
         print("  list                   - List available backups")
         print("  cleanup [days]         - Remove backups older than N days (default: 30)")
+        print("  decrypt <dir>          - Decrypt backup directory")
         sys.exit(1)
 
     manager = DatabaseManager()
@@ -210,13 +356,21 @@ def main():
     try:
         if command == "backup":
             name = sys.argv[2] if len(sys.argv) > 2 else None
-            manager.create_backup(name)
+           name = sys.argv[2] if len(sys.argv) > 2 else None
+           manager.create_backup(name)
+       elif command == "gpx-backup":
+           if len(sys.argv) > 2 and sys.argv[2] == "--full":
+               manager.backup_gpx_files(incremental=False)
+           else:
+               manager.backup_gpx_files()
 
         elif command == "restore":
             if len(sys.argv) < 3:
                 print("Error: Please specify backup file to restore from")
                 sys.exit(1)
 
+            backup_file = sys.argv[2]
+            confirm = "--yes" in sys.argv
             backup_file = sys.argv[2]
             confirm = "--yes" in sys.argv
             manager.restore_backup(backup_file, confirm)

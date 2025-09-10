@@ -1,6 +1,9 @@
+import logging
+import json
+from datetime import datetime
 from fastapi import FastAPI, Depends, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from .database import get_db, get_database_url
+from .database import get_db
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 from alembic.config import Config
@@ -13,6 +16,45 @@ from .routes import workouts as workout_routes
 from .routes import prompts as prompt_routes
 from .routes import dashboard as dashboard_routes
 from .config import settings
+
+# Configure structured JSON logging
+class StructuredJSONFormatter(logging.Formatter):
+    def format(self, record):
+        log_data = {
+            "timestamp": datetime.utcnow().isoformat(),
+            "level": record.levelname,
+            "message": record.getMessage(),
+            "logger": record.name,
+            "module": record.module,
+            "function": record.funcName,
+            "line": record.lineno,
+            "thread": record.threadName,
+        }
+        if hasattr(record, 'extra'):
+            log_data.update(record.extra)
+        if record.exc_info:
+            log_data["exception"] = self.formatException(record.exc_info)
+        return json.dumps(log_data)
+
+# Set up logging
+logger = logging.getLogger("ai_cycling_coach")
+logger.setLevel(logging.INFO)
+
+# Create console handler with structured JSON format
+console_handler = logging.StreamHandler()
+console_handler.setFormatter(StructuredJSONFormatter())
+logger.addHandler(console_handler)
+
+# Configure rotating file handler
+from logging.handlers import RotatingFileHandler
+file_handler = RotatingFileHandler(
+    filename="/app/logs/app.log",
+    maxBytes=10*1024*1024,  # 10 MB
+    backupCount=5,
+    encoding='utf-8'
+)
+file_handler.setFormatter(StructuredJSONFormatter())
+logger.addHandler(file_handler)
 
 app = FastAPI(
     title="AI Cycling Coach API",
@@ -49,61 +91,16 @@ app.include_router(workout_routes.router, prefix="/workouts", tags=["workouts"])
 app.include_router(prompt_routes.router, prefix="/prompts", tags=["prompts"])
 app.include_router(dashboard_routes.router, prefix="/api/dashboard", tags=["dashboard"])
 
-async def check_migration_status():
-    """Check if database migrations are up to date."""
-    try:
-        # Get Alembic configuration
-        config = Config("alembic.ini")
-        config.set_main_option("sqlalchemy.url", get_database_url())
-        script = ScriptDirectory.from_config(config)
-
-        # Get current database revision
-        from sqlalchemy import create_engine
-        engine = create_engine(get_database_url())
-        with engine.connect() as conn:
-            context = MigrationContext.configure(conn)
-            current_rev = context.get_current_revision()
-
-        # Get head revision
-        head_rev = script.get_current_head()
-
-        return {
-            "current_revision": current_rev,
-            "head_revision": head_rev,
-            "migrations_up_to_date": current_rev == head_rev
-        }
-    except Exception as e:
-        return {
-            "error": str(e),
-            "migrations_up_to_date": False
-        }
-
 @app.get("/health")
-async def health_check(db: AsyncSession = Depends(get_db)):
-    """Enhanced health check with migration verification."""
-    health_status = {
+async def health_check():
+    """Simplified health check endpoint."""
+    return {
         "status": "healthy",
         "version": "0.1.0",
-        "timestamp": "2024-01-15T10:30:00Z"  # Should be dynamic
+        "timestamp": datetime.utcnow().isoformat()
     }
-
-    # Database connection check
-    try:
-        await db.execute(text("SELECT 1"))
-        health_status["database"] = "connected"
-    except Exception as e:
-        health_status["status"] = "unhealthy"
-        health_status["database"] = f"error: {str(e)}"
-
-    # Migration status check
-    migration_info = await check_migration_status()
-    health_status["migrations"] = migration_info
-
-    if not migration_info.get("migrations_up_to_date", False):
-        health_status["status"] = "unhealthy"
-
-    return health_status
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    logger.info("Starting AI Cycling Coach API server")
+    uvicorn.run(app, host="0.0.0.0", port=8000, log_config=None)

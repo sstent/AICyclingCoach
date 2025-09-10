@@ -36,8 +36,20 @@ class HealthMonitor:
         return {
             'database': self._check_database(),
             'garmin_sync': self._check_garmin_sync(),
-            'ai_service': self._check_ai_service()
+            'ai_service': self._check_ai_service(),
+            'sync_queue_size': self._get_sync_queue_size(),
+            'pending_analyses': self._count_pending_analyses()
         }
+
+    def _get_sync_queue_size(self) -> int:
+        """Get number of pending sync operations"""
+        from app.models.garmin_sync_log import GarminSyncLog, SyncStatus
+        return GarminSyncLog.query.filter_by(status=SyncStatus.PENDING).count()
+
+    def _count_pending_analyses(self) -> int:
+        """Count workouts needing analysis"""
+        from app.models.workout import Workout
+        return Workout.query.filter_by(analysis_status='pending').count()
 
     def _check_database(self) -> str:
         try:
@@ -45,29 +57,30 @@ class HealthMonitor:
                 db.execute(text("SELECT 1"))
             return "ok"
         except Exception as e:
-            logger.error(f"Database check failed: {str(e)}")
+            logger.error("Database check failed", extra={"component": "database", "error": str(e)})
             return "down"
 
     def _check_garmin_sync(self) -> str:
         try:
             last_sync = GarminSyncLog.get_latest()
             if last_sync and last_sync.status == SyncStatus.FAILED:
+                logger.warning("Garmin sync has failed status", extra={"component": "garmin_sync", "status": last_sync.status.value})
                 return "warning"
             return "ok"
         except Exception as e:
-            logger.error(f"Garmin sync check failed: {str(e)}")
+            logger.error("Garmin sync check failed", extra={"component": "garmin_sync", "error": str(e)})
             return "down"
 
     def _check_ai_service(self) -> str:
         try:
             response = requests.get(
-                f"{settings.AI_SERVICE_URL}/ping", 
+                f"{settings.AI_SERVICE_URL}/ping",
                 timeout=5,
                 headers={"Authorization": f"Bearer {settings.OPENROUTER_API_KEY}"}
             )
             return "ok" if response.ok else "down"
         except Exception as e:
-            logger.error(f"AI service check failed: {str(e)}")
+            logger.error("AI service check failed", extra={"component": "ai_service", "error": str(e)})
             return "down"
 
     def _log_anomalies(self, metrics: Dict[str, Any]):
@@ -75,6 +88,7 @@ class HealthMonitor:
         for metric, value in metrics.items():
             if metric in self.warning_thresholds and value > self.warning_thresholds[metric]:
                 alerts.append(f"{metric} {value}%")
+                logger.warning("System threshold exceeded", extra={"metric": metric, "value": value, "threshold": self.warning_thresholds[metric]})
         
         if alerts:
-            logger.warning(f"System thresholds exceeded: {', '.join(alerts)}")
+            logger.warning("System thresholds exceeded", extra={"alerts": alerts})

@@ -45,21 +45,23 @@ COPY . .
 RUN echo '#!/bin/bash\n\
 set -e\n\
 \n\
-# Run database migrations\n\
+# Run database migrations synchronously\n\
 echo "Running database migrations..."\n\
-alembic upgrade head\n\
+python -m alembic upgrade head\n\
 \n\
 # Verify migration success\n\
 echo "Verifying migration status..."\n\
-alembic current\n\
+python -m alembic current\n\
 \n\
 # Start the application\n\
 echo "Starting application..."\n\
 exec "$@"' > /app/entrypoint.sh && \
     chmod +x /app/entrypoint.sh
 
-# Create non-root user
-RUN useradd -m appuser && chown -R appuser:appuser /app
+# Create non-root user and logs directory
+RUN useradd -m appuser && \
+    mkdir -p /app/logs && \
+    chown -R appuser:appuser /app
 USER appuser
 
 # Expose application port

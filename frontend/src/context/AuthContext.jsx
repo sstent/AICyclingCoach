@@ -44,8 +44,19 @@ export const AuthProvider = ({ children }) => {
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
+  
+  // Return safe defaults during build time
+  if (typeof window === 'undefined') {
+    return {
+      apiKey: null,
+      authFetch: () => {},
+      loading: false
+    };
+  }
+
   if (!context) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
+  
   return context;
 };

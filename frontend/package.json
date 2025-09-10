@@ -8,14 +8,19 @@
     "start": "next start",
     "lint": "next lint",
     "test": "jest",
-    "test:watch": "jest --watch"
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
+    "axios": "^1.7.2",
+    "date-fns": "^3.6.0",
     "next": "14.2.3",
     "react": "18.2.0",
     "react-dom": "18.2.0",
+    "react-router-dom": "^6.22.3",
+    "react-toastify": "^10.0.4",
     "recharts": "2.8.0"
   },
   "devDependencies": {

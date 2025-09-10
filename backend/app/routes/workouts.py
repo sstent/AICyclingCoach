@@ -8,8 +8,9 @@ from app.models.workout import Workout
 from app.models.analysis import Analysis
 from app.models.garmin_sync_log import GarminSyncLog
 from app.models.plan import Plan
-from app.schemas.workout import Workout as WorkoutSchema, WorkoutSyncStatus
+from app.schemas.workout import Workout as WorkoutSchema, WorkoutSyncStatus, WorkoutMetric
 from app.schemas.analysis import Analysis as AnalysisSchema
+from app.schemas.plan import Plan as PlanSchema
 from app.services.workout_sync import WorkoutSyncService
 from app.services.ai_service import AIService
 from app.services.plan_evolution import PlanEvolutionService
@@ -32,7 +33,7 @@ async def read_workout(workout_id: int, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Workout not found")
     return workout
 
-@router.get("/{workout_id}/metrics", response_model=list[schemas.WorkoutMetric])
+@router.get("/{workout_id}/metrics", response_model=list[WorkoutMetric])
 async def get_workout_metrics(
     workout_id: int,
     db: AsyncSession = Depends(get_db)
@@ -153,7 +154,7 @@ async def approve_analysis(
     return {"message": "Analysis approved"}
 
 
-@router.get("/plans/{plan_id}/evolution", response_model=List[schemas.Plan])
+@router.get("/plans/{plan_id}/evolution", response_model=List[PlanSchema])
 async def get_plan_evolution(
     plan_id: int,
     db: AsyncSession = Depends(get_db)

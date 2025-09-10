@@ -9,3 +9,4 @@ python-multipart==0.0.9
 gpxpy  # Add GPX parsing library
 garth==0.4.46  # Garmin Connect API client
 httpx==0.25.2  # Async HTTP client for OpenRouter API
+asyncpg==0.29.0  # Async PostgreSQL driver

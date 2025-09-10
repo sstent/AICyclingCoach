@@ -9,8 +9,11 @@ const Workouts = () => {
   const [selectedWorkout, setSelectedWorkout] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-
+  
+  const isBuildTime = typeof window === 'undefined';
+  
   useEffect(() => {
+    if (isBuildTime) return;
     const fetchWorkouts = async () => {
       try {
         const response = await axios.get('/api/workouts', {
@@ -26,6 +29,17 @@ const Workouts = () => {
     
     fetchWorkouts();
   }, [apiKey]);
+
+  if (isBuildTime) {
+    return (
+      <div className="p-6 max-w-7xl mx-auto">
+        <h1 className="text-3xl font-bold mb-8">Workouts</h1>
+        <div className="bg-white p-6 rounded-lg shadow-md">
+          <p className="text-gray-600">Loading workout data...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) return <div className="p-6 text-center">Loading workouts...</div>;
   if (error) return <div className="p-6 text-red-600">{error}</div>;

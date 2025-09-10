@@ -7,6 +7,7 @@ import LoadingSpinner from '../components/LoadingSpinner';
 
 const Dashboard = () => {
   const { apiKey, loading: apiLoading } = useAuth();
+  const isBuildTime = typeof window === 'undefined';
   const [recentWorkouts, setRecentWorkouts] = useState([]);
   const [currentPlan, setCurrentPlan] = useState(null);
   const [stats, setStats] = useState({ totalWorkouts: 0, totalDistance: 0 });
@@ -18,16 +19,16 @@ const Dashboard = () => {
     const fetchDashboardData = async () => {
       try {
         const [workoutsRes, planRes, statsRes, healthRes] = await Promise.all([
-          fetch('/api/workouts?limit=3', {
+          fetch(`${process.env.REACT_APP_API_URL}/api/workouts?limit=3`, {
             headers: { 'X-API-Key': apiKey }
           }),
-          fetch('/api/plans/active', {
+          fetch(`${process.env.REACT_APP_API_URL}/api/plans/active`, {
             headers: { 'X-API-Key': apiKey }
           }),
-          fetch('/api/stats', {
+          fetch(`${process.env.REACT_APP_API_URL}/api/stats`, {
             headers: { 'X-API-Key': apiKey }
           }),
-          fetch('/api/health', {
+          fetch(`${process.env.REACT_APP_API_URL}/api/health`, {
             headers: { 'X-API-Key': apiKey }
           })
         ]);
@@ -60,6 +61,17 @@ const Dashboard = () => {
 
     fetchDashboardData();
   }, [apiKey]);
+
+  if (isBuildTime) {
+    return (
+      <div className="p-6 max-w-7xl mx-auto">
+        <h1 className="text-3xl font-bold">Training Dashboard</h1>
+        <div className="bg-white p-6 rounded-lg shadow-md">
+          <p className="text-gray-600">Loading dashboard data...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (localLoading || apiLoading) return <LoadingSpinner />;
   if (error) return <div className="p-6 text-red-500">{error}</div>;

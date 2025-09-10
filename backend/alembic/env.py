@@ -9,8 +9,8 @@ import os
 sys.path.append(os.getcwd())
 
 # Import base and models
-from app.models import Base
-from app.database import DATABASE_URL
+from app.models.base import Base
+from app.config import settings
 
 config = context.config
 fileConfig(config.config_file_name)
@@ -30,7 +30,7 @@ def run_migrations_offline():
     with context.begin_transaction():
         context.run_migrations()
 
-def run_migrations_online():
+async def run_migrations_online():
     """Run migrations in 'online' mode."""
     connectable = AsyncEngine(
         engine_from_config(
@@ -38,16 +38,17 @@ def run_migrations_online():
             prefix="sqlalchemy.",
             poolclass=pool.NullPool,
             future=True,
-            url=DATABASE_URL,
+            url=settings.DATABASE_URL,
         )
     )
 
     async with connectable.connect() as connection:
         await connection.run_sync(do_run_migrations)
 
-async def do_run_migrations(connection):
+def do_run_migrations(connection):
     context.configure(connection=connection, target_metadata=target_metadata)
-    await connection.run_sync(context.run_migrations)
+    with context.begin_transaction():
+        context.run_migrations()
 
 if context.is_offline_mode():
     run_migrations_offline()

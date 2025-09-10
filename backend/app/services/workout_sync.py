@@ -6,6 +6,7 @@ from app.models.garmin_sync_log import GarminSyncLog
 from app.models.garmin_sync_log import GarminSyncLog
 from datetime import datetime, timedelta
 import logging
+from typing import Dict, Any
 import asyncio
 
 logger = logging.getLogger(__name__)
