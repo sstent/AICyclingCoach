@@ -26,11 +26,14 @@ services:
       start_period: 40s
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        - REACT_APP_API_URL=http://backend:8000
     ports:
       - "8888:80"
     environment:
-      - REACT_APP_API_URL=http://backend:8000
+      - REACT_APP_CONTAINER_API_URL=http://backend:8000
       - REACT_APP_API_KEY=${API_KEY}
 
   db:

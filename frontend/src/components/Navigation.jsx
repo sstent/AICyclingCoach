@@ -24,6 +24,12 @@ const Navigation = () => {
             Plans
           </Link>
           <Link
+            to="/rules"
+            className="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md"
+          >
+            Rules
+          </Link>
+          <Link
             to="/routes"
             className="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md"
           >

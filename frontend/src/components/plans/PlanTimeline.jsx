@@ -1,93 +1,104 @@
-import { useState, useEffect } from 'react';
-import axios from 'axios';
+import { useState } from 'react';
+import PropTypes from 'prop-types';
 import { useAuth } from '../../context/AuthContext';
-import { formatDistanceToNow } from 'date-fns';
+import axios from 'axios';
+import WorkoutCard from './WorkoutCard';
+import EditWorkoutModal from './EditWorkoutModal';
 
-const PlanTimeline = ({ planId }) => {
+const PlanTimeline = ({ plan, mode = 'view' }) => {
   const { apiKey } = useAuth();
-  const [evolution, setEvolution] = useState([]);
-  const [selectedVersion, setSelectedVersion] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [currentPlan, setCurrentPlan] = useState(plan?.jsonb_plan);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedWorkout, setSelectedWorkout] = useState(null);
+  const [selectedWeek, setSelectedWeek] = useState(0);
 
-  useEffect(() => {
-    const fetchEvolution = async () => {
-      try {
-        const response = await axios.get(`/api/plans/${planId}/evolution`, {
+  const handleWorkoutUpdate = async (updatedWorkout) => {
+    try {
+      const newPlan = { ...currentPlan };
+      newPlan.weeks[selectedWeek].workouts = newPlan.weeks[selectedWeek].workouts.map(w => 
+        w.day === updatedWorkout.day ? updatedWorkout : w
+      );
+      
+      if (mode === 'edit') {
+        await axios.put(`/api/plans/${plan.id}`, newPlan, {
           headers: { 'X-API-Key': apiKey }
         });
-        setEvolution(response.data.evolution_history);
-        setSelectedVersion(response.data.current_version);
-      } catch (error) {
-        console.error('Error fetching plan evolution:', error);
-      } finally {
-        setLoading(false);
       }
-    };
-
-    if (planId) {
-      fetchEvolution();
+      
+      setCurrentPlan(newPlan);
+      setShowEditModal(false);
+    } catch (error) {
+      console.error('Error updating workout:', error);
     }
-  }, [planId, apiKey]);
-
-  if (loading) return <div>Loading plan history...</div>;
+  };
 
   return (
     <div className="bg-white p-6 rounded-lg shadow-md">
-      <h3 className="text-xl font-semibold mb-4">Plan Evolution</h3>
-      
-      <div className="flex flex-col md:flex-row gap-6">
-        <div className="md:w-1/3 space-y-4">
-          {evolution.map((version, idx) => (
-            <div
-              key={version.version}
-              onClick={() => setSelectedVersion(version)}
-              className={`p-4 border-l-4 cursor-pointer transition-colors ${
-                selectedVersion?.version === version.version
-                  ? 'border-blue-500 bg-blue-50'
-                  : 'border-gray-200 hover:bg-gray-50'
-              }`}
-            >
-              <div className="flex justify-between items-center">
-                <span className="font-medium">v{version.version}</span>
-                <span className="text-sm text-gray-500">
-                  {formatDistanceToNow(new Date(version.created_at))} ago
+      <div className="flex items-center justify-between mb-6">
+        <h3 className="text-xl font-semibold">
+          {currentPlan?.plan_overview?.focus} Training Plan
+        </h3>
+        <div className="text-gray-600">
+          {currentPlan?.plan_overview?.duration_weeks} weeks • 
+          {currentPlan?.plan_overview?.weekly_hours} hrs/week
+        </div>
+      </div>
+
+      <div className="space-y-8">
+        {currentPlan?.weeks?.map((week, weekIndex) => (
+          <div key={weekIndex} className="border-l-2 border-blue-100 pl-4">
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="font-medium">
+                Week {weekIndex + 1}: {week.focus}
+              </h4>
+              <div className="flex items-center space-x-2">
+                <div className="h-2 w-24 bg-gray-200 rounded-full">
+                  <div 
+                    className="h-full bg-blue-600 rounded-full"
+                    style={{ width: `${(weekIndex + 1) / currentPlan.plan_overview.duration_weeks * 100}%` }}
+                  />
+                </div>
+                <span className="text-sm text-gray-600">
+                  {week.workouts.length} workouts
                 </span>
               </div>
-              <p className="text-sm text-gray-600 mt-1">
-                {version.trigger || 'Initial version'}
-              </p>
             </div>
-          ))}
-        </div>
 
-        {selectedVersion && (
-          <div className="md:w-2/3 p-4 bg-gray-50 rounded-md">
-            <h4 className="font-medium mb-4">
-              Version {selectedVersion.version} Details
-            </h4>
-            <div className="space-y-3">
-              <p>
-                <span className="font-medium">Created:</span>{' '}
-                {new Date(selectedVersion.created_at).toLocaleString()}
-              </p>
-              {selectedVersion.changes_summary && (
-                <p>
-                  <span className="font-medium">Changes:</span>{' '}
-                  {selectedVersion.changes_summary}
-                </p>
-              )}
-              {selectedVersion.parent_plan_id && (
-                <p>
-                  <span className="font-medium">Parent Version:</span>{' '}
-                  v{selectedVersion.parent_plan_id}
-                </p>
-              )}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {week.workouts.map((workout, workoutIndex) => (
+                <WorkoutCard
+                  key={`${weekIndex}-${workoutIndex}`}
+                  workout={workout}
+                  onEdit={() => {
+                    setSelectedWeek(weekIndex);
+                    setSelectedWorkout(workout);
+                    setShowEditModal(true);
+                  }}
+                  editable={mode === 'edit'}
+                />
+              ))}
             </div>
           </div>
-        )}
+        ))}
       </div>
+
+      {showEditModal && (
+        <EditWorkoutModal
+          workout={selectedWorkout}
+          onClose={() => setShowEditModal(false)}
+          onSave={handleWorkoutUpdate}
+        />
+      )}
     </div>
   );
+};
+
+PlanTimeline.propTypes = {
+  plan: PropTypes.shape({
+    id: PropTypes.number,
+    jsonb_plan: PropTypes.object
+  }),
+  mode: PropTypes.oneOf(['view', 'edit'])
 };
 
 export default PlanTimeline;

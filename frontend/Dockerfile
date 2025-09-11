@@ -1,6 +1,10 @@
 # Stage 1: Build application
 FROM node:20-alpine AS builder
 
+# Allow environment variables to be passed at build time
+ARG REACT_APP_API_URL
+ENV REACT_APP_API_URL=$REACT_APP_API_URL
+
 WORKDIR /app
 
 # Copy package manifests first for optimal caching
@@ -9,7 +13,7 @@ COPY package.json package-lock.json* ./
 # Clean cache and install dependencies
 RUN npm cache clean --force && \
     export NODE_OPTIONS="--max-old-space-size=1024" && \
-    npm install --include=dev
+    npm install --omit=dev --legacy-peer-deps
 
 # Copy source files
 COPY . .

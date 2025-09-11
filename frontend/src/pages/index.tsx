@@ -6,7 +6,9 @@ export default function Home() {
   useEffect(() => {
     const checkBackendHealth = async () => {
       try {
-        const response = await fetch('http://backend:8000/health');
+        // Use the API URL from environment variables
+        const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+        const response = await fetch(`${apiUrl}/health`);
         const data = await response.json();
         setHealthStatus(data.status);
       } catch (error) {
