@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/router';
 
 const WorkoutAnalysis = ({ workout, analysis }) => {
   const [approving, setApproving] = useState(false);
   const [error, setError] = useState(null);
-  const navigate = useNavigate();
+  const router = useRouter();
 
   const approveAnalysis = async () => {
     setApproving(true);
@@ -27,7 +27,7 @@ const WorkoutAnalysis = ({ workout, analysis }) => {
       
       if (result.new_plan_id) {
         // Navigate to the new plan
-        navigate(`/plans/${result.new_plan_id}`);
+        router.push(`/plans/${result.new_plan_id}`);
       } else {
         // Show success message
         setApproving(false);
@@ -155,45 +155,6 @@ const WorkoutAnalysis = ({ workout, analysis }) => {
           )}
         </div>
       )}
-    </div>
-  );
-
-  useEffect(() => {
-    const fetchMetrics = async () => {
-      try {
-        const response = await fetch(`/api/workouts/${workout.id}/metrics`);
-        const data = await response.json();
-        setMetrics(data);
-      } catch (err) {
-        console.error('Error fetching workout metrics:', err);
-      } finally {
-        setLoadingMetrics(false);
-      }
-    };
-
-    if (workout?.id) {
-      fetchMetrics();
-    }
-  }, [workout]);
-
-  return (
-    <div className="workout-analysis bg-white rounded-lg shadow-md p-5 space-y-6">
-      {/* Workout Summary */}
-      <div className="workout-summary border-b border-gray-200 pb-4 mb-4">
-        <h3 className="text-xl font-semibold text-gray-800">
-          {workout.activity_type || 'Cycling'} - {new Date(workout.start_time).toLocaleDateString()}
-        </h3>
-        
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3 text-sm">
-          {/* Existing metric cards */}
-        </div>
-      </div>
-
-      {/* Metrics Charts */}
-      {/* Existing chart implementation */}
-
-      {/* Analysis Content */}
-      {/* Existing analysis content */}
     </div>
   );
 };

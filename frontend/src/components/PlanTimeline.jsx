@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import Link from 'next/link'
 
 const PlanTimeline = ({ planId }) => {
   const [planData, setPlanData] = useState(null)
@@ -120,7 +120,7 @@ const PlanTimeline = ({ planId }) => {
                     )}
                   </div>
                   <Link
-                    to={`/plans/${version.parent_plan_id}`}
+                    href={`/plans/${version.parent_plan_id}`}
                     className="text-blue-500 hover:text-blue-700 text-sm"
                   >
                     View →
