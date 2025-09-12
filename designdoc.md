@@ -20,7 +20,7 @@
 **Workflow Overview**
 
 1. Upload/import GPX → backend saves to mounted folder + metadata in DB
-2. Define rules (natural language → AI parses → JSON → DB)
+2. Define plaintext rules → Store directly in DB
 3. Generate plan → AI creates JSON plan → DB versioned
 4. Ride recorded on Garmin → backend syncs activity metrics → stores in DB
 5. AI analyzes workout → feedback & suggestions stored → user approves → new plan version created
@@ -33,7 +33,7 @@
 **Tasks:**
 
 * **Route/Section Management:** Upload GPX, store metadata, read GPX files for visualization
-* **Rule Management:** CRUD rules, hierarchical parsing (AI-assisted)
+* **Rule Management:** CRUD rules with plaintext storage
 * **Plan Management:** Generate plans (AI), store versions
 * **Workout Analysis:** Fetch Garmin activity, run AI analysis, store reports
 * **AI Integration:** Async calls to OpenRouter
@@ -45,7 +45,7 @@
 | ------ | ------------------- | ------------------------------------------------ |
 | POST   | `/routes/upload`    | Upload GPX file for route/section                |
 | GET    | `/routes`           | List routes and sections                         |
-| POST   | `/rules`            | Create new rule set (with AI parse)              |
+| POST   | `/rules`            | Create new rule set (plaintext)                  |
 | POST   | `/plans/generate`   | Generate new plan using rules & goals            |
 | GET    | `/plans/{plan_id}`  | Fetch plan JSON & version info                   |
 | POST   | `/workouts/analyze` | Trigger AI analysis for a synced Garmin activity |
@@ -82,14 +82,17 @@ CREATE TABLE sections (
     created_at TIMESTAMP DEFAULT now()
 );
 
--- Rules (hierarchical JSON)
+-- Rules (plaintext storage)
 CREATE TABLE rules (
     id SERIAL PRIMARY KEY,
     name TEXT NOT NULL,
+    description TEXT,
     user_defined BOOLEAN DEFAULT true,
-    jsonb_rules JSONB NOT NULL,
+    rule_text TEXT NOT NULL, -- Plaintext rules
     version INT DEFAULT 1,
-    created_at TIMESTAMP DEFAULT now()
+    parent_rule_id INT REFERENCES rules(id),
+    created_at TIMESTAMP DEFAULT now(),
+    updated_at TIMESTAMP DEFAULT now()
 );
 
 -- Plans (versioned)
@@ -192,9 +195,9 @@ volumes:
    * View route map + section metadata
 2. **Rules**
 
-   * Natural language editor
-   * AI parse → preview JSON → save
-   * Switch between rule sets
+   * Plaintext rule editor
+   * Simple create/edit form
+   * Rule version history
 3. **Plan**
 
    * Select goal + rule set → generate plan
@@ -213,7 +216,7 @@ volumes:
 ### **5.3 User Flow Example**
 
 1. Upload GPX → backend saves file + DB metadata
-2. Define rule set → AI parses → user confirms → DB versioned
+2. Define rule set → Store plaintext → DB versioned
 3. Generate plan → AI → store plan version in DB
 4. Sync Garmin activity → backend fetches metrics → store workout
 5. AI analyzes → report displayed → user approves → new plan version
@@ -229,6 +232,7 @@ volumes:
   * Configurable model per action
 * Async calls to OpenRouter
 * Store raw AI output + processed structured result in DB
+* Use plaintext rules directly in prompts without parsing
 
 ---
 

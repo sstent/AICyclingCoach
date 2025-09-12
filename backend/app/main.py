@@ -65,7 +65,11 @@ app = FastAPI(
 # API Key Authentication Middleware
 @app.middleware("http")
 async def api_key_auth(request: Request, call_next):
-    if request.url.path.startswith("/docs") or request.url.path.startswith("/redoc") or request.url.path == "/health":
+    # Skip authentication for documentation and health endpoints
+    if (request.url.path.startswith("/docs") or
+        request.url.path.startswith("/redoc") or
+        request.url.path == "/health" or
+        request.url.path == "/openapi.json"):
         return await call_next(request)
         
     api_key = request.headers.get("X-API-KEY")

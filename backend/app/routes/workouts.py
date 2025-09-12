@@ -154,7 +154,7 @@ async def approve_analysis(
     return {"message": "Analysis approved"}
 
 
-@router.get("/plans/{plan_id}/evolution", response_model=List[PlanSchema])
+@router.get("/plans/{plan_id}/evolution", response_model=List["PlanSchema"])
 async def get_plan_evolution(
     plan_id: int,
     db: AsyncSession = Depends(get_db)

@@ -1,11 +1,10 @@
-from fastapi import HTTPException, Header, status
-import os
+from fastapi import Depends
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.database import get_db
+from app.services.ai_service import AIService
+from typing import AsyncGenerator
 
-async def verify_api_key(api_key: str = Header(..., alias="X-API-Key")):
-    """Dependency to verify API key header"""
-    expected_key = os.getenv("API_KEY")
-    if not expected_key or api_key != expected_key:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or missing API Key"
-        )
+
+async def get_ai_service(db: AsyncSession = Depends(get_db)) -> AIService:
+    """Get AI service instance with database dependency."""
+    return AIService(db)
