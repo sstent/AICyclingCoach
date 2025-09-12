@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Query, HTTPException
 from fastapi.responses import FileResponse
-from app.services.export_service import ExportService
+from backend.app.services.export_service import ExportService
 from pathlib import Path
 import logging
 

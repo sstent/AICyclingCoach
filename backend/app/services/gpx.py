@@ -3,7 +3,7 @@ import uuid
 import logging
 from fastapi import UploadFile, HTTPException
 import gpxpy
-from app.config import settings
+from backend.app.config import settings
 
 logger = logging.getLogger(__name__)
 

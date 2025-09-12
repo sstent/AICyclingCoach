@@ -16,7 +16,7 @@ from typing import Optional
 backend_dir = Path(__file__).parent.parent
 sys.path.insert(0, str(backend_dir))
 
-from app.database import get_database_url
+from backend.app.database import get_database_url
 
 class DatabaseManager:
     """Handles database backup and restore operations."""

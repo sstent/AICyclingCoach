@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.database import get_db
-from app.models.workout import Workout
-from app.models.plan import Plan
-from app.models.garmin_sync_log import GarminSyncLog
+from backend.app.database import get_db
+from backend.app.models.workout import Workout
+from backend.app.models.plan import Plan
+from backend.app.models.garmin_sync_log import GarminSyncLog
 from sqlalchemy import select, desc
 from datetime import datetime, timedelta
 

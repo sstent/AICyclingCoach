@@ -1,8 +1,8 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock
-from app.services.plan_evolution import PlanEvolutionService
-from app.models.plan import Plan
-from app.models.analysis import Analysis
+from backend.app.services.plan_evolution import PlanEvolutionService
+from backend.app.models.plan import Plan
+from backend.app.models.analysis import Analysis
 from datetime import datetime
 
 @pytest.mark.asyncio

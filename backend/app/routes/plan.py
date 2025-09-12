@@ -1,12 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from app.database import get_db
-from app.models.plan import Plan as PlanModel
-from app.models.rule import Rule
-from app.schemas.plan import PlanCreate, Plan as PlanSchema, PlanGenerationRequest, PlanGenerationResponse
-from app.dependencies import get_ai_service
-from app.services.ai_service import AIService
+from backend.app.database import get_db
+from backend.app.models.plan import Plan as PlanModel
+from backend.app.models.rule import Rule
+from backend.app.schemas.plan import PlanCreate, Plan as PlanSchema, PlanGenerationRequest, PlanGenerationResponse
+from backend.app.dependencies import get_ai_service
+from backend.app.services.ai_service import AIService
 from uuid import UUID, uuid4
 from datetime import datetime
 from typing import List

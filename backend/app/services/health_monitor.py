@@ -3,10 +3,10 @@ from datetime import datetime
 import logging
 from typing import Dict, Any
 from sqlalchemy import text
-from app.database import get_db
-from app.models.garmin_sync_log import GarminSyncLog, SyncStatus
+from backend.app.database import get_db
+from backend.app.models.garmin_sync_log import GarminSyncLog, SyncStatus
 import requests
-from app.config import settings
+from backend.app.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -43,12 +43,12 @@ class HealthMonitor:
 
     def _get_sync_queue_size(self) -> int:
         """Get number of pending sync operations"""
-        from app.models.garmin_sync_log import GarminSyncLog, SyncStatus
+        from backend.app.models.garmin_sync_log import GarminSyncLog, SyncStatus
         return GarminSyncLog.query.filter_by(status=SyncStatus.PENDING).count()
 
     def _count_pending_analyses(self) -> int:
         """Count workouts needing analysis"""
-        from app.models.workout import Workout
+        from backend.app.models.workout import Workout
         return Workout.query.filter_by(analysis_status='pending').count()
 
     def _check_database(self) -> str:

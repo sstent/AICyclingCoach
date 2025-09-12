@@ -18,7 +18,7 @@ from alembic import command
 from alembic.migration import MigrationContext
 from alembic.script import ScriptDirectory
 from sqlalchemy import create_engine, text
-from app.database import get_database_url
+from backend.app.database import get_database_url
 
 class MigrationChecker:
     """Validates migration compatibility and integrity."""

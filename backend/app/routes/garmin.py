@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.dependencies import verify_api_key
-from app.services.workout_sync import WorkoutSyncService
-from app.database import get_db
+from backend.app.dependencies import verify_api_key
+from backend.app.services.workout_sync import WorkoutSyncService
+from backend.app.database import get_db
 
 router = APIRouter(dependencies=[Depends(verify_api_key)])
 

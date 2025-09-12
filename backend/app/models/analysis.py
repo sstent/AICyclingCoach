@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, JSON, Boolean, DateTime, func
+from datetime import datetime
+from sqlalchemy import Column, Integer, String, ForeignKey, JSON, Boolean, DateTime
 from sqlalchemy.orm import relationship
 from .base import BaseModel
 
@@ -13,7 +14,7 @@ class Analysis(BaseModel):
     suggestions = Column(JSON)
     approved = Column(Boolean, default=False)
     created_plan_id = Column(Integer, ForeignKey('plans.id'))
-    approved_at = Column(DateTime(timezone=True), server_default=func.now())
+    approved_at = Column(DateTime, default=datetime.utcnow)  # Changed from server_default=func.now()
     
     # Relationships
     workout = relationship("Workout", back_populates="analyses")

@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
-from app.services.ai_service import AIService, AIServiceError
-from app.models.workout import Workout
+from backend.app.services.ai_service import AIService, AIServiceError
+from backend.app.models.workout import Workout
 import json
 
 @pytest.mark.asyncio

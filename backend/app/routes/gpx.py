@@ -1,9 +1,9 @@
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.database import get_db
-from app.services.gpx import parse_gpx, store_gpx_file
-from app.schemas.gpx import RouteCreate, Route as RouteSchema
-from app.models import Route
+from backend.app.database import get_db
+from backend.app.services.gpx import parse_gpx, store_gpx_file
+from backend.app.schemas.gpx import RouteCreate, Route as RouteSchema
+from backend.app.models import Route
 import os
 
 router = APIRouter(prefix="/gpx", tags=["GPX Routes"])

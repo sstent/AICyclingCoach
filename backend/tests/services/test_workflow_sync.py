@@ -1,8 +1,8 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-from app.services.workout_sync import WorkoutSyncService
-from app.models.workout import Workout
-from app.models.garmin_sync_log import GarminSyncLog
+from backend.app.services.workout_sync import WorkoutSyncService
+from backend.app.models.workout import Workout
+from backend.app.models.garmin_sync_log import GarminSyncLog
 from datetime import datetime, timedelta
 import asyncio
 

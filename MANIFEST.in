@@ -1,0 +1,27 @@
+# Include important files
+include README.md
+include LICENSE
+include requirements.txt
+include .env
+include Makefile
+include pyproject.toml
+
+# Include backend files
+recursive-include backend *.py
+recursive-include backend *.ini
+recursive-include backend *.mako
+
+# Include TUI files  
+recursive-include tui *.py
+
+# Include data directories
+recursive-include data *.gitkeep
+
+# Exclude unnecessary files
+exclude *.pyc
+recursive-exclude * __pycache__
+recursive-exclude * *.py[co]
+exclude .git*
+exclude .vscode
+exclude .idea
+exclude *.log

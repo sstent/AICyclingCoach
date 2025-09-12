@@ -1,11 +1,20 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
-    DATABASE_URL: str
-    GPX_STORAGE_PATH: str
-    AI_MODEL: str = "openrouter/auto"
-    API_KEY: str
+    # Database settings
+    DATABASE_URL: str = "sqlite+aiosqlite:///data/cycling_coach.db"
     
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    # File storage settings
+    GPX_STORAGE_PATH: str = "data/gpx"
+    
+    # AI settings
+    AI_MODEL: str = "deepseek/deepseek-r1"
+    OPENROUTER_API_KEY: str = ""
+    
+    # Garmin settings
+    GARMIN_USERNAME: str = ""
+    GARMIN_PASSWORD: str = ""
+    
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
 settings = Settings()

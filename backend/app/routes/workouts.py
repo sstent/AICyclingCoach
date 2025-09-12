@@ -3,17 +3,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import List
 
-from app.database import get_db
-from app.models.workout import Workout
-from app.models.analysis import Analysis
-from app.models.garmin_sync_log import GarminSyncLog
-from app.models.plan import Plan
-from app.schemas.workout import Workout as WorkoutSchema, WorkoutSyncStatus, WorkoutMetric
-from app.schemas.analysis import Analysis as AnalysisSchema
-from app.schemas.plan import Plan as PlanSchema
-from app.services.workout_sync import WorkoutSyncService
-from app.services.ai_service import AIService
-from app.services.plan_evolution import PlanEvolutionService
+from backend.app.database import get_db
+from backend.app.models.workout import Workout
+from backend.app.models.analysis import Analysis
+from backend.app.models.garmin_sync_log import GarminSyncLog
+from backend.app.models.plan import Plan
+from backend.app.schemas.workout import Workout as WorkoutSchema, WorkoutSyncStatus, WorkoutMetric
+from backend.app.schemas.analysis import Analysis as AnalysisSchema
+from backend.app.schemas.plan import Plan as PlanSchema
+from backend.app.services.workout_sync import WorkoutSyncService
+from backend.app.services.ai_service import AIService
+from backend.app.services.plan_evolution import PlanEvolutionService
 
 router = APIRouter()
 

@@ -3,8 +3,8 @@ import asyncio
 from typing import Dict, Any, List, Optional
 import httpx
 import json
-from app.services.prompt_manager import PromptManager
-from app.models.workout import Workout
+from backend.app.services.prompt_manager import PromptManager
+from backend.app.models.workout import Workout
 import logging
 
 logger = logging.getLogger(__name__)

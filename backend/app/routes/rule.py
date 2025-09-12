@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from app.database import get_db
-from app.models.rule import Rule
-from app.schemas.rule import RuleCreate, Rule as RuleSchema, NaturalLanguageRuleRequest, ParsedRuleResponse
-from app.dependencies import get_ai_service
-from app.services.ai_service import AIService
+from backend.app.database import get_db
+from backend.app.models.rule import Rule
+from backend.app.schemas.rule import RuleCreate, Rule as RuleSchema, NaturalLanguageRuleRequest, ParsedRuleResponse
+from backend.app.dependencies import get_ai_service
+from backend.app.services.ai_service import AIService
 from uuid import UUID
 from typing import List
 

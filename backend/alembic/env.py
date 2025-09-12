@@ -1,16 +1,21 @@
 from logging.config import fileConfig
 from sqlalchemy import engine_from_config, pool
-from sqlalchemy.ext.asyncio import AsyncEngine
+from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from alembic import context
 import sys
 import os
+from pathlib import Path
 
-# Add app directory to path
-sys.path.append(os.getcwd())
+# Add backend directory to path
+backend_dir = Path(__file__).parent.parent
+sys.path.insert(0, str(backend_dir))
 
 # Import base and models
-from app.models.base import Base
-from app.config import settings
+from backend.app.models.base import Base
+from backend.app.config import settings
+
+# Import all models to ensure they're registered
+from backend.app.models import *
 
 config = context.config
 fileConfig(config.config_file_name)
@@ -19,12 +24,13 @@ target_metadata = Base.metadata
 
 def run_migrations_offline():
     """Run migrations in 'offline' mode."""
-    url = config.get_main_option("sqlalchemy.url")
+    url = settings.DATABASE_URL
     context.configure(
         url=url,
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        render_as_batch=True,  # Important for SQLite
     )
 
     with context.begin_transaction():
@@ -32,21 +38,28 @@ def run_migrations_offline():
 
 async def run_migrations_online():
     """Run migrations in 'online' mode."""
-    connectable = AsyncEngine(
-        engine_from_config(
-            config.get_section(config.config_ini_section),
-            prefix="sqlalchemy.",
-            poolclass=pool.NullPool,
-            future=True,
-            url=settings.DATABASE_URL,
-        )
+    # Ensure data directory exists
+    data_dir = Path("data")
+    data_dir.mkdir(exist_ok=True)
+    
+    connectable = create_async_engine(
+        settings.DATABASE_URL,
+        poolclass=pool.NullPool,
+        connect_args={"check_same_thread": False} if "sqlite" in settings.DATABASE_URL else {}
     )
 
     async with connectable.connect() as connection:
         await connection.run_sync(do_run_migrations)
 
+    await connectable.dispose()
+
 def do_run_migrations(connection):
-    context.configure(connection=connection, target_metadata=target_metadata)
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        render_as_batch=True,  # Important for SQLite ALTER TABLE support
+    )
+    
     with context.begin_transaction():
         context.run_migrations()
 

@@ -1,12 +1,11 @@
-from sqlalchemy import Column, Integer, ForeignKey
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import Column, Integer, ForeignKey, JSON
 from sqlalchemy.orm import relationship
 from .base import BaseModel
 
 class Plan(BaseModel):
     __tablename__ = "plans"
 
-    jsonb_plan = Column(JSONB, nullable=False)
+    jsonb_plan = Column(JSON, nullable=False)  # Changed from JSONB to JSON for SQLite compatibility
     version = Column(Integer, nullable=False)
     parent_plan_id = Column(Integer, ForeignKey('plans.id'), nullable=True)
 

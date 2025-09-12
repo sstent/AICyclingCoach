@@ -3,7 +3,7 @@ from .route import Route
 from .section import Section
 from .rule import Rule
 from .plan import Plan
-from .plan_rule import PlanRule
+from .plan_rule import plan_rules
 from .user import User
 from .workout import Workout
 from .analysis import Analysis

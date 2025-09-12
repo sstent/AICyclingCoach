@@ -17,7 +17,7 @@ from alembic import command
 from alembic.migration import MigrationContext
 from alembic.script import ScriptDirectory
 import sqlalchemy as sa
-from app.database import get_database_url
+from backend.app.database import get_database_url
 
 def get_alembic_config():
     """Get Alembic configuration."""

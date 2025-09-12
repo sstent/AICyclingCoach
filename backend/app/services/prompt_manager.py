@@ -1,6 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, func
-from app.models.prompt import Prompt
+from backend.app.models.prompt import Prompt
 import logging
 
 logger = logging.getLogger(__name__)

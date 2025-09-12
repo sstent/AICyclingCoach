@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import AsyncMock, patch
-from app.services.garmin import GarminService
-from app.models.garmin_sync_log import GarminSyncStatus
+from backend.app.services.garmin import GarminService
+from backend.app.models.garmin_sync_log import GarminSyncStatus
 from datetime import datetime, timedelta
 
 @pytest.mark.asyncio

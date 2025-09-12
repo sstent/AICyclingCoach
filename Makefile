@@ -1,57 +1,67 @@
-.PHONY: up down build start stop restart logs backend-logs frontend-logs db-logs
+.PHONY: install dev-install run test clean build package help init-db
 
-# Start all services in detached mode
-up:
-	docker-compose up -d
+# Default target
+help:
+	@echo "AI Cycling Coach - Available commands:"
+	@echo "  install      - Install the application"
+	@echo "  dev-install  - Install in development mode"
+	@echo "  run          - Run the application"
+	@echo "  init-db      - Initialize the database"
+	@echo "  test         - Run tests"
+	@echo "  clean        - Clean build artifacts"
+	@echo "  build        - Build distribution packages"
+	@echo "  package      - Create standalone executable"
 
-# Stop and remove all containers
-down:
-	docker-compose down
+# Installation
+install:
+	pip install .
 
-# Rebuild all Docker images
-build:
-	docker-compose build --no-cache
+dev-install:
+	pip install -e .[dev]
 
-# Start services if not running, otherwise restart
-start:
-	docker-compose start || docker-compose up -d
-
-# Stop running services
-stop:
-	docker-compose stop
-
-# Restart all services
-restart:
-	docker-compose restart
-
-# Show logs for all services
-logs:
-	docker-compose logs -f
-
-# Show backend logs
-backend-logs:
-	docker-compose logs -f backend
-
-# Show frontend logs
-frontend-logs:
-	docker-compose logs -f frontend
-
-# Show database logs
-db-logs:
-	docker-compose logs -f db
-
-# Initialize database and run migrations
+# Database initialization
 init-db:
-	docker-compose run --rm backend alembic upgrade head
+	@echo "Initializing database..."
+	@mkdir -p data
+	@cd backend && python -m alembic upgrade head
+	@echo "Database initialized successfully!"
 
-# Create new database migration
-migration:
-	docker-compose run --rm backend alembic revision --autogenerate -m "$(m)"
+# Run application
+run:
+	python main.py
 
-# Run tests
+# Testing
 test:
-	docker-compose run --rm backend pytest
+	pytest
 
-# Open database shell
-db-shell:
-	docker-compose exec db psql -U appuser -d cyclingdb
+# Cleanup
+clean:
+	rm -rf build/
+	rm -rf dist/
+	rm -rf *.egg-info/
+	find . -type d -name __pycache__ -exec rm -rf {} +
+	find . -type f -name "*.pyc" -delete
+
+# Build distribution
+build: clean
+	python -m build
+
+# Package as executable (requires PyInstaller)
+package:
+	@echo "Creating standalone executable..."
+	@pip install pyinstaller
+	@pyinstaller --onefile --name cycling-coach main.py
+	@echo "Executable created in dist/cycling-coach"
+
+# Development tools
+lint:
+	black --check .
+	isort --check-only .
+
+format:
+	black .
+	isort .
+
+# Quick setup for new users
+setup: dev-install init-db
+	@echo "Setup complete! Run 'make run' to start the application."

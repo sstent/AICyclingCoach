@@ -1,6 +1,6 @@
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 from fastapi.responses import JSONResponse
-from app.services.import_service import ImportService
+from backend.app.services.import_service import ImportService
 import logging
 from typing import Optional
 

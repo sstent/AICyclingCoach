@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 from fastapi.responses import PlainTextResponse, JSONResponse
-from app.services.health_monitor import HealthMonitor
+from backend.app.services.health_monitor import HealthMonitor
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST, Gauge
 from pathlib import Path
 import json

@@ -1,7 +1,7 @@
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.database import get_db
-from app.services.ai_service import AIService
+from backend.app.database import get_db
+from backend.app.services.ai_service import AIService
 from typing import AsyncGenerator
 
 

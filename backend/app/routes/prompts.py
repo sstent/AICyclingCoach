@@ -3,10 +3,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import List
 
-from app.database import get_db
-from app.models.prompt import Prompt
-from app.schemas.prompt import Prompt as PromptSchema, PromptCreate, PromptUpdate
-from app.services.prompt_manager import PromptManager
+from backend.app.database import get_db
+from backend.app.models.prompt import Prompt
+from backend.app.schemas.prompt import Prompt as PromptSchema, PromptCreate, PromptUpdate
+from backend.app.services.prompt_manager import PromptManager
 
 router = APIRouter()
 

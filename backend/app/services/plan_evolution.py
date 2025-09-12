@@ -1,8 +1,8 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from app.services.ai_service import AIService
-from app.models.analysis import Analysis
-from app.models.plan import Plan
+from backend.app.services.ai_service import AIService
+from backend.app.models.analysis import Analysis
+from backend.app.models.plan import Plan
 import logging
 
 logger = logging.getLogger(__name__)
