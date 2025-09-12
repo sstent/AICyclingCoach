@@ -19,9 +19,21 @@ class DashboardService:
     def __init__(self, db: AsyncSession):
         self.db = db
     
+    async def test_connection(self) -> None:
+        """Test database connection by running a simple query."""
+        try:
+            result = await self.db.execute("SELECT 1")
+            return result.scalar() == 1
+        except Exception as e:
+            raise Exception(f"Database connection test failed: {str(e)}")
+    
     async def get_dashboard_data(self) -> Dict:
         """Get consolidated dashboard data."""
         try:
+            # Test database connection first
+            if not await self.test_connection():
+                raise Exception("Database connection test failed")
+            
             # Recent workouts (last 7 days)
             workout_result = await self.db.execute(
                 select(Workout)
@@ -87,6 +99,10 @@ class DashboardService:
     async def get_weekly_stats(self) -> Dict:
         """Get weekly workout statistics."""
         try:
+            # Test database connection first
+            if not await self.test_connection():
+                raise Exception("Database connection test failed")
+            
             week_start = datetime.now() - timedelta(days=7)
             
             workout_result = await self.db.execute(

@@ -211,16 +211,21 @@ class RuleView(Widget):
     
     async def on_mount(self) -> None:
         """Load rules when mounted."""
+        self.log("Mounting Rules view")
         await self.load_rules()
     
     async def load_rules(self) -> None:
         """Load rules from database."""
+        self.log("Starting rules load")
         self.loading = True
         self.refresh()
         
         try:
+            self.log("Creating database session")
             async with AsyncSessionLocal() as db:
+                self.log("Creating RuleService")
                 rule_service = RuleService(db)
+                self.log("Fetching rules from database")
                 self.rules = await rule_service.get_rules()
                 self.log(f"Loaded {len(self.rules)} rules from database")
                 await self.populate_rules_table()
@@ -229,22 +234,26 @@ class RuleView(Widget):
             self.error_message = error_msg
             self.log(error_msg, severity="error")
         finally:
+            self.log("Finished loading rules")
             self.loading = False
             self.refresh()
     
     async def populate_rules_table(self) -> None:
         """Populate rules table with data."""
         try:
+            self.log("Querying for rules table widget")
             rules_table = self.query_one("#rules-table", DataTable)
             if not rules_table:
                 self.log("Rules table widget not found", severity="error")
                 return
                 
+            self.log("Clearing rules table")
             rules_table.clear()
             self.log(f"Populating table with {len(self.rules)} rules")
             
             if not self.rules:
                 # Add placeholder row when no rules exist
+                self.log("Adding placeholder for empty rules")
                 rules_table.add_row("No rules found", "", "", "", "")
                 self.log("No rules to display")
                 return
