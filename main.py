@@ -18,7 +18,8 @@ from textual.logging import TextualHandler
 
 from backend.app.config import settings
 from backend.app.database import init_db
-from tui.views.dashboard import DashboardView
+# Use working dashboard with static content
+from tui.views.dashboard_working import WorkingDashboardView as DashboardView
 from tui.views.workouts import WorkoutView
 from tui.views.plans import PlanView
 from tui.views.rules import RuleView
@@ -125,14 +126,6 @@ class CyclingCoachApp(App):
     
     async def on_mount(self) -> None:
         """Initialize the application when mounted."""
-        # Initialize database
-        try:
-            await init_db()
-            self.log("Database initialized successfully")
-        except Exception as e:
-            self.log(f"Database initialization failed: {e}", severity="error")
-            self.exit(1)
-        
         # Set initial active navigation
         self.query_one("#nav-dashboard").add_class("-active")
     
@@ -175,7 +168,17 @@ async def main():
     data_dir.mkdir(exist_ok=True)
     (data_dir / "gpx").mkdir(exist_ok=True)
     (data_dir / "sessions").mkdir(exist_ok=True)
-    
+
+    # Initialize database BEFORE starting the app
+    try:
+        await init_db()
+        print("Database initialized successfully") # Use print as app logging isn't available yet
+    except Exception as e:
+        print(f"Database initialization failed: {e}")
+        # Exit if database initialization fails
+        import sys
+        sys.exit(1)
+
     # Run the TUI application
     app = CyclingCoachApp()
     await app.run_async()

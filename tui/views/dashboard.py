@@ -98,6 +98,10 @@ class DashboardView(Widget):
         """Create dashboard layout."""
         self.log(f"[DashboardView] compose called | debug_id={self.debug_id} | loading={self.loading} | error={self.error_message}")
         yield Static("AI Cycling Coach Dashboard", classes="view-title")
+        
+        # DEBUG: Always show some content to verify rendering
+        yield Static(f"DEBUG: View Status - Loading: {self.loading}, Error: {bool(self.error_message)}, Data: {bool(self.dashboard_data)}")
+        
         # Always show the structure - use conditional content
         if self.error_message:
             with Container(classes="error-container"):
@@ -115,6 +119,7 @@ class DashboardView(Widget):
                 yield Static("Click Refresh to try again", classes="error-action")
         elif self.loading and not self.dashboard_data:
             # Initial load - full screen loader
+            yield Static("Loading dashboard data...")
             yield LoadingIndicator(id="dashboard-loader")
         else:
             # Show content with optional refresh indicator

@@ -1,8 +1,8 @@
 from datetime import datetime
 from sqlalchemy import Column, Integer, DateTime
-from sqlalchemy.ext.declarative import declarative_base
 
-Base = declarative_base()
+# Import Base from database.py to ensure models use the same Base instance
+from ..database import Base
 
 class BaseModel(Base):
     __abstract__ = True

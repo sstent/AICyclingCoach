@@ -20,6 +20,7 @@ AsyncSessionLocal = sessionmaker(
     expire_on_commit=False
 )
 
+# Base is now defined here and imported by models
 Base = declarative_base()
 
 async def get_db() -> AsyncSession:

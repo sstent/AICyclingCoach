@@ -2,6 +2,7 @@
 Plan view for AI Cycling Coach TUI.
 Displays training plans, plan generation, and plan management.
 """
+import asyncio
 from textual.app import ComposeResult
 from textual.containers import Container, Horizontal, Vertical, ScrollableContainer
 from textual.widgets import (
@@ -16,6 +17,7 @@ from typing import List, Dict, Optional
 from backend.app.database import AsyncSessionLocal
 from tui.services.plan_service import PlanService
 from tui.services.rule_service import RuleService
+from .base_view import BaseView
 
 
 class PlanGenerationForm(Widget):
@@ -71,7 +73,7 @@ class PlanDetailsModal(Widget):
                 yield Button("Edit Plan", id="edit-plan-btn", variant="primary")
 
 
-class PlanView(Widget):
+class PlanView(BaseView):
     """Training plan management view."""
     
     # Reactive attributes
@@ -154,33 +156,43 @@ class PlanView(Widget):
         with Container():
             yield PlanGenerationForm()
     
-    async def on_mount(self) -> None:
+    def on_mount(self) -> None:
         """Load plan data when mounted."""
+        self.loading = True
+        asyncio.create_task(self._load_plans_and_handle_result())
+
+    async def _load_plans_and_handle_result(self) -> None:
+        """Load plans data and handle the result."""
         try:
-            await self.load_plans_data()
+            plans, rules = await self._load_plans_data()
+            self.plans = plans
+            self.rules = rules
+            self.loading = False
+            self.refresh(layout=True)
+                
         except Exception as e:
-            self.log(f"Plans loading error: {e}", severity="error")
+            self.log(f"Error loading plans data: {e}", severity="error")
             self.loading = False
             self.refresh()
     
-    async def load_plans_data(self) -> None:
-        """Load plans and rules data."""
+    async def _load_plans_data(self) -> tuple[list, list]:
+        """Load plans and rules data (async worker)."""
+        async with AsyncSessionLocal() as db:
+            plan_service = PlanService(db)
+            rule_service = RuleService(db)
+            return (
+                await plan_service.get_plans(),
+                await rule_service.get_rules()
+            )
+
+    def on_plans_loaded(self, result: tuple[list, list]) -> None:
+        """Handle loaded plans data."""
         try:
-            async with AsyncSessionLocal() as db:
-                plan_service = PlanService(db)
-                rule_service = RuleService(db)
-                
-                # Load plans and rules
-                self.plans = await plan_service.get_plans()
-                self.rules = await rule_service.get_rules()
-                
-                # Update loading state
-                self.loading = False
-                self.refresh()
-                
-                # Populate UI elements
-                await self.populate_plans_table()
-                await self.populate_rules_select()
+            plans, rules = result
+            self.plans = plans
+            self.rules = rules
+            self.loading = False
+            self.refresh(layout=True)
                 
         except Exception as e:
             self.log(f"Error loading plans data: {e}", severity="error")

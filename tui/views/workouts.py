@@ -2,6 +2,7 @@
 Workout view for AI Cycling Coach TUI.
 Displays workout list, analysis, and import functionality.
 """
+import asyncio
 from datetime import datetime
 from textual.app import ComposeResult
 from textual.containers import Container, Horizontal, Vertical, ScrollableContainer
@@ -16,6 +17,8 @@ from typing import List, Dict, Optional
 
 from backend.app.database import AsyncSessionLocal
 from tui.services.workout_service import WorkoutService
+from tui.widgets.loading import LoadingSpinner
+from tui.views.base_view import BaseView
 
 
 class WorkoutMetricsChart(Widget):
@@ -143,7 +146,7 @@ class WorkoutAnalysisPanel(Widget):
         return "\n".join(formatted)
 
 
-class WorkoutView(Widget):
+class WorkoutView(BaseView):
     """Workout management view."""
     
     # Reactive attributes
@@ -206,7 +209,7 @@ class WorkoutView(Widget):
         yield Static("Workout Management", classes="view-title")
         
         if self.loading:
-            yield LoadingIndicator(id="workouts-loader")
+            yield LoadingSpinner("Loading workouts...")
         else:
             with TabbedContent():
                 with TabPane("Workout List", id="workout-list-tab"):
@@ -298,33 +301,46 @@ Elevation Gain: {workout.get('elevation_gain_m', 'N/A')} m
         
         return Static(summary_text)
     
-    async def on_mount(self) -> None:
+    def on_mount(self) -> None:
         """Load workout data when mounted."""
-        try:
-            await self.load_workouts_data()
-        except Exception as e:
-            self.log(f"Workouts loading error: {e}", severity="error")
-            self.loading = False
-            self.refresh()
-    
-    async def load_workouts_data(self) -> None:
-        """Load workouts and sync status."""
+        self.loading = True
+        # self.run_worker(self._load_workouts_and_handle_result_sync, thread=True)
+
+    # def _load_workouts_and_handle_result_sync(self) -> None:
+    #     """Synchronous wrapper to load workouts data and handle the result."""
+    #     try:
+    #         # Run the async part using asyncio.run
+    #         workouts, sync_status = asyncio.run(self._load_workouts_data())
+    #         self.workouts = workouts
+    #         self.sync_status = sync_status
+    #         self.loading = False
+    #         self.call_after_refresh(lambda: self.refresh(layout=True))
+    #     except Exception as e:
+    #         self.log(f"Error loading workouts data: {e}", severity="error")
+    #         self.loading = False
+    #         self.call_after_refresh(lambda: self.refresh())
+
+    async def _load_workouts_data(self) -> tuple[list, dict]:
+        """Load workouts and sync status (async worker)."""
         try:
             async with AsyncSessionLocal() as db:
                 workout_service = WorkoutService(db)
-                
-                # Load workouts and sync status
-                self.workouts = await workout_service.get_workouts(limit=50)
-                self.sync_status = await workout_service.get_sync_status()
-                
-                # Update loading state
-                self.loading = False
-                self.refresh()
-                
-                # Populate UI elements
-                await self.populate_workouts_table()
-                await self.update_sync_status()
-                
+                return (
+                    await workout_service.get_workouts(limit=50),
+                    await workout_service.get_sync_status()
+                )
+        except Exception as e:
+            self.log(f"Error loading workouts: {str(e)}", severity="error")
+            raise
+
+    def on_workouts_loaded(self, result: tuple[list, dict]) -> None:
+        """Handle loaded workout data."""
+        try:
+            workouts, sync_status = result
+            self.workouts = workouts
+            self.sync_status = sync_status
+            self.loading = False
+            self.refresh(layout=True)
         except Exception as e:
             self.log(f"Error loading workouts data: {e}", severity="error")
             self.loading = False
