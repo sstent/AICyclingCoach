@@ -6,6 +6,7 @@ Entry point for the terminal-based cycling training coach.
 import asyncio
 import logging
 from pathlib import Path
+import sys
 from typing import Optional
 
 from textual.app import App, ComposeResult
@@ -14,8 +15,8 @@ from textual.widgets import (
     Header, Footer, Static, Button, DataTable, 
     Placeholder, TabbedContent, TabPane
 )
-from textual import on
 from textual.logging import TextualHandler
+from textual import on
 
 from backend.app.config import settings
 from backend.app.database import init_db
@@ -100,6 +101,7 @@ class CyclingCoachApp(App):
     
     def compose(self) -> ComposeResult:
         """Create the main application layout."""
+        sys.stdout.write("CyclingCoachApp.compose: START\n")
         yield Header()
         
         with Container():
@@ -134,12 +136,13 @@ class CyclingCoachApp(App):
                             yield RouteView(id="route-view")
         
         yield Footer()
-    
+        sys.stdout.write("CyclingCoachApp.compose: END\n")
+
     async def on_mount(self) -> None:
         """Initialize the application when mounted."""
         # Set initial active navigation
         self.query_one("#nav-dashboard").add_class("-active")
-    
+
     async def on_button_pressed(self, event: Button.Pressed) -> None:
         """Handle navigation button presses."""
         button_id = event.button.id
@@ -169,17 +172,25 @@ class CyclingCoachApp(App):
 
     @on(TabbedContent.TabActivated)
     async def on_tab_activated(self, event: TabbedContent.TabActivated) -> None:
+        sys.stdout.write(f"CyclingCoachApp.on_tab_activated: Tab {event.pane.id} activated\n")
         """Handle tab activation to load data for the active tab."""
         if event.pane.id == "workouts-tab":
             workout_view = self.query_one("#workout-view", WorkoutView)
+            sys.stdout.write("CyclingCoachApp.on_tab_activated: Calling workout_view.load_data()\n")
             workout_view.load_data()
 
     def action_quit(self) -> None:
-        """Quit the application."""
         self.exit()
 
+async def init_db_async():
+    try:
+        await init_db()
+        sys.stdout.write("Database initialized successfully\n")
+    except Exception as e:
+        sys.stdout.write(f"Database initialization failed: {e}\n")
+        sys.exit(1)
 
-async def main():
+def main():
     """Main entry point for the CLI application."""
     # Create data directory if it doesn't exist
     data_dir = Path("data")
@@ -188,19 +199,15 @@ async def main():
     (data_dir / "sessions").mkdir(exist_ok=True)
 
     # Initialize database BEFORE starting the app
-    try:
-        await init_db()
-        print("Database initialized successfully") # Use print as app logging isn't available yet
-    except Exception as e:
-        print(f"Database initialization failed: {e}")
-        # Exit if database initialization fails
-        import sys
-        sys.exit(1)
+    asyncio.run(init_db_async())
 
     # Run the TUI application
+    sys.stdout.write("main(): Initializing CyclingCoachApp\n")
     app = CyclingCoachApp()
-    await app.run_async()
+    sys.stdout.write("main(): CyclingCoachApp initialized. Running app.run()\n")
+    app.run()
+    sys.stdout.write("main(): app.run() finished.\n")
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()

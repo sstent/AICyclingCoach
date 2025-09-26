@@ -13,6 +13,7 @@ from textual.widgets import (
 from textual.widget import Widget
 from textual.reactive import reactive
 from textual.message import Message
+import sys
 from typing import List, Dict, Optional
 
 from backend.app.database import AsyncSessionLocal
@@ -206,6 +207,7 @@ class WorkoutView(BaseView):
     
     def compose(self) -> ComposeResult:
         """Create workout view layout."""
+        sys.stdout.write("WorkoutView.compose: START\n")
         yield Static("Workout Management", classes="view-title")
         
         if self.loading:
@@ -215,121 +217,57 @@ class WorkoutView(BaseView):
                 with TabPane("Workout List", id="workout-list-tab"):
                     yield self.compose_workout_list()
                 
-                if self.selected_workout:
-                    with TabPane("Workout Details", id="workout-details-tab"):
+                with TabPane("Workout Details", id="workout-details-tab"):
+                    if self.selected_workout:
                         yield self.compose_workout_details()
-    
-    def compose_workout_list(self) -> ComposeResult:
-        """Create workout list view."""
-        with Container():
-            # Sync section
-            with Container(classes="sync-container"):
-                yield Static("Garmin Sync", classes="section-title")
-                yield Static("Status: Unknown", id="sync-status-text")
-                
-                with Horizontal(classes="button-row"):
-                    yield Button("Sync Now", id="sync-garmin-btn", variant="primary")
-                    yield Button("Check Status", id="check-sync-btn")
-            
-            # Workout filters and actions
-            with Horizontal(classes="button-row"):
-                yield Button("Refresh", id="refresh-workouts-btn")
-                yield Input(placeholder="Filter workouts...", id="workout-filter")
-                yield Button("Filter", id="filter-workouts-btn")
-            
-            # Workouts table
-            workouts_table = DataTable(id="workouts-table")
-            workouts_table.add_columns("Date", "Type", "Duration", "Distance", "Avg HR", "Avg Power", "Actions")
-            yield workouts_table
-    
-    def compose_workout_details(self) -> ComposeResult:
-        """Create workout details view."""
-        workout = self.selected_workout
-        if not workout:
-            yield Static("No workout selected")
-            return
-        
-        with ScrollableContainer():
-            # Workout summary
-            yield Static("Workout Summary", classes="section-title")
-            yield self.create_workout_summary(workout)
-            
-            # Metrics visualization
-            if workout.get('metrics'):
-                with Container(classes="metrics-container"):
-                    yield WorkoutMetricsChart(workout['metrics'])
-            
-            # Analysis section
-            yield Static("AI Analysis", classes="section-title")
-            yield WorkoutAnalysisPanel(workout, self.workout_analyses)
-    
-    def create_workout_summary(self, workout: Dict) -> Container:
-        """Create workout summary display."""
-        container = Container()
-        
-        # Basic workout info
-        start_time = "Unknown"
-        if workout.get("start_time"):
-            try:
-                dt = datetime.fromisoformat(workout["start_time"].replace('Z', '+00:00'))
-                start_time = dt.strftime("%Y-%m-%d %H:%M:%S")
-            except:
-                start_time = workout["start_time"]
-        
-        duration = "Unknown"
-        if workout.get("duration_seconds"):
-            minutes = workout["duration_seconds"] // 60
-            seconds = workout["duration_seconds"] % 60
-            duration = f"{minutes}:{seconds:02d}"
-        
-        distance = "Unknown"
-        if workout.get("distance_m"):
-            distance = f"{workout['distance_m'] / 1000:.2f} km"
-        
-        summary_text = f"""
-Activity Type: {workout.get('activity_type', 'Unknown')}
-Start Time: {start_time}
-Duration: {duration}
-Distance: {distance}
-Average Heart Rate: {workout.get('avg_hr', 'N/A')} BPM
-Max Heart Rate: {workout.get('max_hr', 'N/A')} BPM
-Average Power: {workout.get('avg_power', 'N/A')} W
-Max Power: {workout.get('max_power', 'N/A')} W
-Average Cadence: {workout.get('avg_cadence', 'N/A')} RPM
-Elevation Gain: {workout.get('elevation_gain_m', 'N/A')} m
-        """.strip()
-        
-        return Static(summary_text)
-    
+                    else:
+                        yield Static("Select a workout to view details", id="workout-details-placeholder")
+        sys.stdout.write("WorkoutView.compose: END\n")
+
     def on_mount(self) -> None:
         """Load workout data when mounted."""
+        sys.stdout.write("WorkoutView.on_mount: START\n")
         self.loading = True
+        self.load_data()
+        sys.stdout.write("WorkoutView.on_mount: END\n")
 
     def load_data(self) -> None:
         """Public method to trigger data loading for the workout view."""
+        sys.stdout.write("WorkoutView.load_data: START\n")
         self.loading = True
-        self.refresh()
         self.run_async(self._load_workouts_data(), self.on_workouts_loaded)
+        sys.stdout.write("WorkoutView.load_data: END\n")
 
     async def _load_workouts_data(self) -> tuple[list, dict]:
         """Load workouts and sync status (async worker)."""
+        sys.stdout.write("WorkoutView._load_workouts_data: START\n")
         self.log("Attempting to load workouts data...")
         try:
+            sys.stdout.write("WorkoutView._load_workouts_data: Before AsyncSessionLocal\n")
             async with AsyncSessionLocal() as db:
                 workout_service = WorkoutService(db)
+                sys.stdout.write("WorkoutView._load_workouts_data: Before get_workouts\n")
                 workouts = await workout_service.get_workouts(limit=50)
+                sys.stdout.write("WorkoutView._load_workouts_data: After get_workouts\n")
                 sync_status = await workout_service.get_sync_status()
+                sys.stdout.write("WorkoutView._load_workouts_data: After get_sync_status\n")
                 self.log(f"Workouts data loaded: {len(workouts)} workouts, sync status: {sync_status}")
+                sys.stdout.write("WorkoutView._load_workouts_data: Before return\n")
                 return workouts, sync_status
         except Exception as e:
+            sys.stdout.write(f"WorkoutView._load_workouts_data: ERROR: {str(e)}\n")
             self.log(f"Error loading workouts: {str(e)}", severity="error")
             raise
+        finally:
+            sys.stdout.write("WorkoutView._load_workouts_data: FINALLY\n")
 
     def on_workouts_loaded(self, result: tuple[list, dict]) -> None:
         """Handle loaded workout data."""
+        sys.stdout.write("WorkoutView.on_workouts_loaded: START\n")
         self.log("Entering on_workouts_loaded")
         try:
             workouts, sync_status = result
+            sys.stdout.write(f"WorkoutView.on_workouts_loaded: received: {len(workouts)} workouts, sync status: {sync_status}\n")
             self.log(f"on_workouts_loaded received: {len(workouts)} workouts, sync status: {sync_status}")
             self.workouts = workouts
             self.sync_status = sync_status
@@ -337,10 +275,14 @@ Elevation Gain: {workout.get('elevation_gain_m', 'N/A')} m
             self.refresh(layout=True)
             self.populate_workouts_table()
             self.update_sync_status()
+            sys.stdout.write("WorkoutView.on_workouts_loaded: UI updated\n")
         except Exception as e:
+            sys.stdout.write(f"WorkoutView.on_workouts_loaded: ERROR: {e}\n")
             self.log(f"Error in on_workouts_loaded: {e}", severity="error")
             self.loading = False
             self.refresh()
+        finally:
+            sys.stdout.write("WorkoutView.on_workouts_loaded: FINALLY\n")
     
     async def populate_workouts_table(self) -> None:
         """Populate the workouts table."""

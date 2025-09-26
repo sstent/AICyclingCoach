@@ -47,7 +47,10 @@ class WorkoutService:
             ]
             
         except Exception as e:
-            raise Exception(f"Error fetching workouts: {str(e)}")
+            # Log error properly
+            import logging
+            logging.error(f"Error fetching workouts: {str(e)}")
+            return []
     
     async def get_workout(self, workout_id: int) -> Optional[Dict]:
         """Get a specific workout by ID."""
