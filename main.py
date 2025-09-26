@@ -14,6 +14,7 @@ from textual.widgets import (
     Header, Footer, Static, Button, DataTable, 
     Placeholder, TabbedContent, TabPane
 )
+from textual import on
 from textual.logging import TextualHandler
 
 from backend.app.config import settings
@@ -165,7 +166,14 @@ class CyclingCoachApp(App):
             for nav_button in self.query("Button"):
                 nav_button.remove_class("-active")
             event.button.add_class("-active")
-    
+
+    @on(TabbedContent.TabActivated)
+    async def on_tab_activated(self, event: TabbedContent.TabActivated) -> None:
+        """Handle tab activation to load data for the active tab."""
+        if event.pane.id == "workouts-tab":
+            workout_view = self.query_one("#workout-view", WorkoutView)
+            workout_view.load_data()
+
     def action_quit(self) -> None:
         """Quit the application."""
         self.exit()

@@ -13,7 +13,6 @@ from textual.widgets import (
 from textual.widget import Widget
 from textual.reactive import reactive
 from textual.message import Message
-from textual import on
 from typing import List, Dict, Optional
 
 from backend.app.database import AsyncSessionLocal
@@ -306,23 +305,11 @@ Elevation Gain: {workout.get('elevation_gain_m', 'N/A')} m
         """Load workout data when mounted."""
         self.loading = True
 
-    async def load_workouts_data(self) -> None:
-        """Load workout data and handle the result."""
+    def load_data(self) -> None:
+        """Public method to trigger data loading for the workout view."""
         self.loading = True
         self.refresh()
-        try:
-            workouts, sync_status = await self._load_workouts_data()
-            self.on_workouts_loaded((workouts, sync_status))
-        except Exception as e:
-            self.log(f"Error loading workouts data: {e}", severity="error")
-            self.loading = False
-            self.refresh()
-
-    @on(TabbedContent.TabActivated)
-    async def on_tab_activated(self, event: TabbedContent.TabActivated) -> None:
-        """Handle tab activation to load data for the active tab."""
-        if event.pane.id == "workouts-tab":
-            await self.load_workouts_data()
+        self.run_async(self._load_workouts_data(), self.on_workouts_loaded)
 
     async def _load_workouts_data(self) -> tuple[list, dict]:
         """Load workouts and sync status (async worker)."""
@@ -340,10 +327,10 @@ Elevation Gain: {workout.get('elevation_gain_m', 'N/A')} m
 
     def on_workouts_loaded(self, result: tuple[list, dict]) -> None:
         """Handle loaded workout data."""
-        print("Entering on_workouts_loaded")
+        self.log("Entering on_workouts_loaded")
         try:
             workouts, sync_status = result
-            print(f"on_workouts_loaded received: {len(workouts)} workouts, sync status: {sync_status}")
+            self.log(f"on_workouts_loaded received: {len(workouts)} workouts, sync status: {sync_status}")
             self.workouts = workouts
             self.sync_status = sync_status
             self.loading = False
@@ -351,7 +338,7 @@ Elevation Gain: {workout.get('elevation_gain_m', 'N/A')} m
             self.populate_workouts_table()
             self.update_sync_status()
         except Exception as e:
-            print(f"Error in on_workouts_loaded: {e}")
+            self.log(f"Error in on_workouts_loaded: {e}", severity="error")
             self.loading = False
             self.refresh()
     
