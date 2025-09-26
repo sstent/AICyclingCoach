@@ -56,6 +56,16 @@ class CyclingCoachApp(App):
         background: $accent;
         color: $text;
     }
+
+    TabbedContent {
+        height: 1fr;
+        width: 1fr;
+    }
+
+    TabPane {
+        height: 1fr;
+        width: 1fr;
+    }
     """
     
     TITLE = "AI Cycling Coach"

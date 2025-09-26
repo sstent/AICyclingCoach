@@ -13,6 +13,7 @@ from textual.widgets import (
 from textual.widget import Widget
 from textual.reactive import reactive
 from textual.message import Message
+from textual import on
 from typing import List, Dict, Optional
 
 from backend.app.database import AsyncSessionLocal
@@ -304,45 +305,53 @@ Elevation Gain: {workout.get('elevation_gain_m', 'N/A')} m
     def on_mount(self) -> None:
         """Load workout data when mounted."""
         self.loading = True
-        # self.run_worker(self._load_workouts_and_handle_result_sync, thread=True)
 
-    # def _load_workouts_and_handle_result_sync(self) -> None:
-    #     """Synchronous wrapper to load workouts data and handle the result."""
-    #     try:
-    #         # Run the async part using asyncio.run
-    #         workouts, sync_status = asyncio.run(self._load_workouts_data())
-    #         self.workouts = workouts
-    #         self.sync_status = sync_status
-    #         self.loading = False
-    #         self.call_after_refresh(lambda: self.refresh(layout=True))
-    #     except Exception as e:
-    #         self.log(f"Error loading workouts data: {e}", severity="error")
-    #         self.loading = False
-    #         self.call_after_refresh(lambda: self.refresh())
+    async def load_workouts_data(self) -> None:
+        """Load workout data and handle the result."""
+        self.loading = True
+        self.refresh()
+        try:
+            workouts, sync_status = await self._load_workouts_data()
+            self.on_workouts_loaded((workouts, sync_status))
+        except Exception as e:
+            self.log(f"Error loading workouts data: {e}", severity="error")
+            self.loading = False
+            self.refresh()
+
+    @on(TabbedContent.TabActivated)
+    async def on_tab_activated(self, event: TabbedContent.TabActivated) -> None:
+        """Handle tab activation to load data for the active tab."""
+        if event.pane.id == "workouts-tab":
+            await self.load_workouts_data()
 
     async def _load_workouts_data(self) -> tuple[list, dict]:
         """Load workouts and sync status (async worker)."""
+        self.log("Attempting to load workouts data...")
         try:
             async with AsyncSessionLocal() as db:
                 workout_service = WorkoutService(db)
-                return (
-                    await workout_service.get_workouts(limit=50),
-                    await workout_service.get_sync_status()
-                )
+                workouts = await workout_service.get_workouts(limit=50)
+                sync_status = await workout_service.get_sync_status()
+                self.log(f"Workouts data loaded: {len(workouts)} workouts, sync status: {sync_status}")
+                return workouts, sync_status
         except Exception as e:
             self.log(f"Error loading workouts: {str(e)}", severity="error")
             raise
 
     def on_workouts_loaded(self, result: tuple[list, dict]) -> None:
         """Handle loaded workout data."""
+        print("Entering on_workouts_loaded")
         try:
             workouts, sync_status = result
+            print(f"on_workouts_loaded received: {len(workouts)} workouts, sync status: {sync_status}")
             self.workouts = workouts
             self.sync_status = sync_status
             self.loading = False
             self.refresh(layout=True)
+            self.populate_workouts_table()
+            self.update_sync_status()
         except Exception as e:
-            self.log(f"Error loading workouts data: {e}", severity="error")
+            print(f"Error in on_workouts_loaded: {e}")
             self.loading = False
             self.refresh()
     

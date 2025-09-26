@@ -20,7 +20,6 @@ class BaseView(Widget):
         )
         return worker
     
-    @work(thread=True)
     async def _async_wrapper(self, coro: Coroutine, callback: Callable[[Any], None] = None) -> None:
         """Wrapper for async operations with cancellation support."""
         try:
