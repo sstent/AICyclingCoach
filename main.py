@@ -3,16 +3,19 @@
 AI Cycling Coach - CLI TUI Application
 Entry point for the terminal-based cycling training coach.
 """
+import argparse
 import asyncio
 import logging
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 import sys
 from typing import Optional
+from datetime import datetime
 
 from textual.app import App, ComposeResult
 from textual.containers import Container, Horizontal, Vertical
 from textual.widgets import (
-    Header, Footer, Static, Button, DataTable, 
+    Header, Footer, Static, Button, DataTable,
     Placeholder, TabbedContent, TabPane
 )
 from textual.logging import TextualHandler
@@ -26,6 +29,8 @@ from tui.views.workouts import WorkoutView
 from tui.views.plans import PlanView
 from tui.views.rules import RuleView
 from tui.views.routes import RouteView
+from backend.app.database import AsyncSessionLocal
+from tui.services.workout_service import WorkoutService
 
 
 class CyclingCoachApp(App):
@@ -93,9 +98,12 @@ class CyclingCoachApp(App):
         logger.addHandler(textual_handler)
         
         # Add file handler
-        file_handler = logging.FileHandler(logs_dir / "app.log")
+        # Add file handler for rotating logs
+        file_handler = logging.handlers.RotatingFileHandler(
+            logs_dir / "app.log", maxBytes=1024 * 1024 * 5, backupCount=5  # 5MB
+        )
         file_handler.setFormatter(
-            logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+            logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
         )
         logger.addHandler(file_handler)
     
@@ -190,8 +198,80 @@ async def init_db_async():
         sys.stdout.write(f"Database initialization failed: {e}\n")
         sys.exit(1)
 
+async def list_workouts_cli():
+    """Display workouts in CLI format without starting TUI."""
+    try:
+        # Initialize database
+        await init_db_async()
+
+        # Get workouts using WorkoutService
+        async with AsyncSessionLocal() as db:
+            workout_service = WorkoutService(db)
+            workouts = await workout_service.get_workouts(limit=50)
+
+        if not workouts:
+            print("No workouts found.")
+            return
+
+        # Print header
+        print("AI Cycling Coach - Workouts")
+        print("=" * 80)
+        print(f"{'Date':<12} {'Type':<15} {'Duration':<10} {'Distance':<10} {'Avg HR':<8} {'Avg Power':<10}")
+        print("-" * 80)
+
+        # Print each workout
+        for workout in workouts:
+            # Format date
+            date_str = "Unknown"
+            if workout.get("start_time"):
+                try:
+                    dt = datetime.fromisoformat(workout["start_time"].replace('Z', '+00:00'))
+                    date_str = dt.strftime("%m/%d %H:%M")
+                except:
+                    date_str = workout["start_time"][:10]
+
+            # Format duration
+            duration_str = "N/A"
+            if workout.get("duration_seconds"):
+                minutes = workout["duration_seconds"] // 60
+                duration_str = f"{minutes}min"
+
+            # Format distance
+            distance_str = "N/A"
+            if workout.get("distance_m"):
+                distance_str = f"{workout['distance_m'] / 1000:.1f}km"
+
+            # Format heart rate
+            hr_str = "N/A"
+            if workout.get("avg_hr"):
+                hr_str = f"{workout['avg_hr']} BPM"
+
+            # Format power
+            power_str = "N/A"
+            if workout.get("avg_power"):
+                power_str = f"{workout['avg_power']} W"
+
+            print(f"{date_str:<12} {workout.get('activity_type', 'Unknown')[:14]:<15} {duration_str:<10} {distance_str:<10} {hr_str:<8} {power_str:<10}")
+
+        print(f"\nTotal workouts: {len(workouts)}")
+
+    except Exception as e:
+        print(f"Error listing workouts: {e}")
+        sys.exit(1)
+
 def main():
     """Main entry point for the CLI application."""
+    parser = argparse.ArgumentParser(description="AI Cycling Coach - Terminal Training Interface")
+    parser.add_argument("--list-workouts", action="store_true",
+                       help="List all workouts in CLI format and exit")
+
+    args = parser.parse_args()
+
+    # Handle CLI commands that don't need TUI
+    if args.list_workouts:
+        asyncio.run(list_workouts_cli())
+        return
+
     # Create data directory if it doesn't exist
     data_dir = Path("data")
     data_dir.mkdir(exist_ok=True)

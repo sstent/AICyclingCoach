@@ -20,10 +20,10 @@ async def test_analyze_workout_success():
     })
     
     with patch('httpx.AsyncClient.post') as mock_post:
-        mock_post.return_value = AsyncMock(
-            status_code=200,
-            json=lambda: {"choices": [{"message": {"content": test_response}}]}
-        )
+        mock_response = AsyncMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"choices": [{"message": {"content": test_response}}]}
+        mock_post.return_value = mock_response
         
         workout = Workout(activity_type="cycling", duration_seconds=3600)
         result = await ai_service.analyze_workout(workout)
@@ -34,20 +34,20 @@ async def test_analyze_workout_success():
 @pytest.mark.asyncio
 async def test_generate_plan_success():
     """Test plan generation with structured response"""
-    mock_db = MagicMock()
+    mock_db = AsyncMock()
     ai_service = AIService(mock_db)
-    ai_service.prompt_manager.get_active_prompt = AsyncMock(return_value="Plan prompt: {rules} {goals}")
-    
+    ai_service.prompt_manager.get_active_prompt = AsyncMock(return_value="Plan prompt: {rules_text} {goals}")
+
     test_plan = {
         "weeks": [{"workouts": ["ride"]}],
         "focus": "endurance"
     }
     
     with patch('httpx.AsyncClient.post') as mock_post:
-        mock_post.return_value = AsyncMock(
-            status_code=200,
-            json=lambda: {"choices": [{"message": {"content": json.dumps(test_plan)}}]}
-        )
+        mock_response = AsyncMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"choices": [{"message": {"content": json.dumps(test_plan)}}]}
+        mock_post.return_value = mock_response
         
         result = await ai_service.generate_plan([], {})
         assert "weeks" in result
@@ -70,14 +70,14 @@ async def test_api_retry_logic():
 @pytest.mark.asyncio
 async def test_invalid_json_handling():
     """Test graceful handling of invalid JSON responses"""
-    mock_db = MagicMock()
+    mock_db = AsyncMock()
     ai_service = AIService(mock_db)
-    
+
     with patch('httpx.AsyncClient.post') as mock_post:
-        mock_post.return_value = AsyncMock(
-            status_code=200,
-            json=lambda: {"choices": [{"message": {"content": "invalid{json"}}]}
-        )
+        mock_response = AsyncMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"choices": [{"message": {"content": "invalid{json"}}]}
+        mock_post.return_value = mock_response
         
         result = await ai_service.parse_rules_from_natural_language("test")
         assert "raw_rules" in result
@@ -86,16 +86,16 @@ async def test_invalid_json_handling():
 @pytest.mark.asyncio
 async def test_code_block_parsing():
     """Test extraction of JSON from code blocks"""
-    mock_db = MagicMock()
+    mock_db = AsyncMock()
     ai_service = AIService(mock_db)
-    
+
     test_response = "```json\n" + json.dumps({"max_rides": 4}) + "\n```"
     
     with patch('httpx.AsyncClient.post') as mock_post:
-        mock_post.return_value = AsyncMock(
-            status_code=200,
-            json=lambda: {"choices": [{"message": {"content": test_response}}]}
-        )
+        mock_response = AsyncMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"choices": [{"message": {"content": test_response}}]}
+        mock_post.return_value = mock_response
         
         result = await ai_service.evolve_plan({})
         assert "max_rides" in result

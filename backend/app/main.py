@@ -1,6 +1,7 @@
 import logging
 import json
 from datetime import datetime
+from pathlib import Path
 from fastapi import FastAPI, Depends, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from .database import get_db
@@ -47,8 +48,11 @@ logger.addHandler(console_handler)
 
 # Configure rotating file handler
 from logging.handlers import RotatingFileHandler
+# Create logs directory relative to the project root
+log_dir = Path(__file__).parent.parent.parent / "logs"
+log_dir.mkdir(exist_ok=True)
 file_handler = RotatingFileHandler(
-    filename="/app/logs/app.log",
+    filename=log_dir / "backend.log",
     maxBytes=10*1024*1024,  # 10 MB
     backupCount=5,
     encoding='utf-8'

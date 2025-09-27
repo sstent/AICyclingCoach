@@ -156,6 +156,7 @@ class WorkoutView(BaseView):
     workout_analyses = reactive([])
     loading = reactive(True)
     sync_status = reactive({})
+    error_message = reactive(None)
     
     DEFAULT_CSS = """
     .view-title {
@@ -191,6 +192,15 @@ class WorkoutView(BaseView):
         padding: 1;
         margin: 1 0;
     }
+
+    .error-message {
+        color: $error;
+        text-style: bold;
+        background: #2a0a0a;  /* Dark red background */
+        padding: 1;
+        margin: 1 0;
+        border: round $error;
+    }
     """
     
     class WorkoutSelected(Message):
@@ -210,7 +220,14 @@ class WorkoutView(BaseView):
         sys.stdout.write("WorkoutView.compose: START\n")
         yield Static("Workout Management", classes="view-title")
         
-        if self.loading:
+        if self.error_message:
+            yield Static(
+                f"Error: {self.error_message}",
+                classes="error-message",
+                id="error-display"
+            )
+            yield Button("Retry Loading", id="retry-loading-btn", variant="primary")
+        elif self.loading:
             yield LoadingSpinner("Loading workouts...")
         else:
             with TabbedContent():
@@ -231,12 +248,31 @@ class WorkoutView(BaseView):
         self.load_data()
         sys.stdout.write("WorkoutView.on_mount: END\n")
 
+    async def _load_workouts_with_timeout(self) -> tuple[list, dict]:
+            """Load workouts with 5-second timeout."""
+            try:
+                # Wrap the actual loading with timeout
+                result = await asyncio.wait_for(
+                    self._load_workouts_data(),
+                    timeout=5.0
+                )
+                return result
+            except asyncio.TimeoutError:
+                raise Exception("Loading timed out after 5 seconds")
+            except Exception as e:
+                raise e
+    
     def load_data(self) -> None:
-        """Public method to trigger data loading for the workout view."""
-        sys.stdout.write("WorkoutView.load_data: START\n")
-        self.loading = True
-        self.run_async(self._load_workouts_data(), self.on_workouts_loaded)
-        sys.stdout.write("WorkoutView.load_data: END\n")
+            """Public method to trigger data loading for the workout view."""
+            sys.stdout.write("WorkoutView.load_data: START\n")
+            self.loading = True
+            self.run_async(
+                self._async_wrapper(
+                    self._load_workouts_with_timeout(),
+                    self.on_workouts_loaded
+                )
+            )
+            sys.stdout.write("WorkoutView.load_data: END\n")
 
     async def _load_workouts_data(self) -> tuple[list, dict]:
         """Load workouts and sync status (async worker)."""
@@ -272,6 +308,7 @@ class WorkoutView(BaseView):
             self.workouts = workouts
             self.sync_status = sync_status
             self.loading = False
+            self.error_message = None
             self.refresh(layout=True)
             self.populate_workouts_table()
             self.update_sync_status()
@@ -280,9 +317,11 @@ class WorkoutView(BaseView):
             sys.stdout.write(f"WorkoutView.on_workouts_loaded: ERROR: {e}\n")
             self.log(f"Error in on_workouts_loaded: {e}", severity="error")
             self.loading = False
+            self.error_message = f"Failed to process loaded data: {str(e)}"
             self.refresh()
         finally:
             sys.stdout.write("WorkoutView.on_workouts_loaded: FINALLY\n")
+
     
     async def populate_workouts_table(self) -> None:
         """Populate the workouts table."""
@@ -361,6 +400,9 @@ class WorkoutView(BaseView):
                 await self.check_sync_status()
             elif event.button.id == "analyze-workout-btn":
                 await self.analyze_selected_workout()
+            elif event.button.id == "retry-loading-btn":
+                self.error_message = None
+                await self.load_data()
             elif event.button.id.startswith("approve-analysis-"):
                 analysis_id = int(event.button.id.split("-")[-1])
                 await self.approve_analysis(analysis_id)
@@ -487,5 +529,10 @@ class WorkoutView(BaseView):
     
     def watch_loading(self, loading: bool) -> None:
         """React to loading state changes."""
+        if hasattr(self, '_mounted') and self._mounted:
+            self.refresh()
+
+    def watch_error_message(self, error_message: Optional[str]) -> None:
+        """React to error message changes."""
         if hasattr(self, '_mounted') and self._mounted:
             self.refresh()

@@ -22,7 +22,7 @@ class PromptManager:
             query = query.where(Prompt.model == model)
 
         result = await self.db.execute(query.order_by(Prompt.version.desc()))
-        prompt = result.scalar_one_or_none()
+        prompt = await result.scalar_one_or_none()
         return prompt.prompt_text if prompt else None
 
     async def create_prompt_version(

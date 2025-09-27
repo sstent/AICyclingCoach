@@ -1,5 +1,14 @@
-from sqlalchemy import Column, Integer, DateTime, String, Text
+from sqlalchemy import Column, Integer, DateTime, String, Text, Enum
 from .base import BaseModel
+import enum
+
+
+class GarminSyncStatus(str, enum.Enum):
+    PENDING = "pending"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    AUTH_FAILED = "auth_failed"
+    FAILED = "failed"
 
 
 class GarminSyncLog(BaseModel):
@@ -8,5 +17,5 @@ class GarminSyncLog(BaseModel):
 
     last_sync_time = Column(DateTime)
     activities_synced = Column(Integer, default=0)
-    status = Column(String(20))  # success, error, in_progress
+    status = Column(Enum(GarminSyncStatus), default=GarminSyncStatus.PENDING)
     error_message = Column(Text)

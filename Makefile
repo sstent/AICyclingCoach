@@ -14,25 +14,25 @@ help:
 
 # Installation
 install:
-	pip install .
+	.venv/bin/pip install .
 
 dev-install:
-	pip install -e .[dev]
+	.venv/bin/pip install -r requirements.txt
 
 # Database initialization
 init-db:
 	@echo "Initializing database..."
 	@mkdir -p data
-	@cd backend && python -m alembic upgrade head
+	@.venv/bin/python -m alembic upgrade head
 	@echo "Database initialized successfully!"
 
 # Run application
 run:
-	python main.py
+	.venv/bin/python main.py
 
 # Testing
 test:
-	pytest
+	.venv/bin/pytest
 
 # Cleanup
 clean:
@@ -49,8 +49,8 @@ build: clean
 # Package as executable (requires PyInstaller)
 package:
 	@echo "Creating standalone executable..."
-	@pip install pyinstaller
-	@pyinstaller --onefile --name cycling-coach main.py
+	@.venv/bin/pip install pyinstaller
+	@.venv/bin/pyinstaller --onefile --name cycling-coach main.py
 	@echo "Executable created in dist/cycling-coach"
 
 # Development tools

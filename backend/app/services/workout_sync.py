@@ -97,14 +97,14 @@ class WorkoutSyncService:
             .order_by(desc(GarminSyncLog.created_at))
             .limit(1)
         )
-        return result.scalar_one_or_none()
+        return await result.scalar_one_or_none()
 
     async def activity_exists(self, garmin_activity_id: str) -> bool:
         """Check if activity already exists in database."""
         result = await self.db.execute(
             select(Workout).where(Workout.garmin_activity_id == garmin_activity_id)
         )
-        return result.scalar_one_or_none() is not None
+        return (await result.scalar_one_or_none()) is not None
 
     async def parse_activity_data(self, activity: Dict[str, Any]) -> Dict[str, Any]:
         """Parse Garmin activity data into workout model format."""

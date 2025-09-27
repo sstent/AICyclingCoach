@@ -17,6 +17,7 @@ async def test_evolve_plan_with_valid_analysis():
     )
     mock_analysis = Analysis(
         approved=True,
+        suggestions=["More recovery"],
         jsonb_feedback={"suggestions": ["More recovery"]}
     )
     
@@ -28,7 +29,7 @@ async def test_evolve_plan_with_valid_analysis():
     assert result.version == 2
     assert result.parent_plan_id == 1
     mock_db.add.assert_called_once()
-    mock_db.commit.assert_awaited_once()
+    mock_db.commit.assert_called_once()
 
 @pytest.mark.asyncio
 async def test_evolution_skipped_for_unapproved_analysis():
@@ -45,12 +46,14 @@ async def test_evolution_skipped_for_unapproved_analysis():
 async def test_evolution_history_retrieval():
     """Test getting plan evolution history"""
     mock_db = AsyncMock()
-    mock_db.execute.return_value.scalars.return_value = [
+    mock_result = AsyncMock()
+    mock_result.scalars.return_value.all.return_value = [
         Plan(version=1), Plan(version=2)
     ]
+    mock_db.execute.return_value = mock_result
     
     service = PlanEvolutionService(mock_db)
     history = await service.get_plan_evolution_history(1)
-    
-    assert len(history) == 2
-    assert history[0].version == 1
+    history_result = await history
+    assert len(history_result) == 2
+    assert history_result[0].version == 1

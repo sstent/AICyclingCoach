@@ -62,7 +62,7 @@ class PlanEvolutionService:
             )
             .order_by(Plan.version)
         )
-        return result.scalars().all()
+        return (await result.scalars()).all()
 
     async def get_current_active_plan(self) -> Plan:
         """Get the most recent active plan."""

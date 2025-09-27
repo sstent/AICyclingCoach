@@ -1,7 +1,10 @@
 import os
+from pathlib import Path
 import garth
+import asyncio
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timedelta
+from sqlalchemy.ext.asyncio import AsyncSession
 import logging
 
 logger = logging.getLogger(__name__)
@@ -10,14 +13,16 @@ logger = logging.getLogger(__name__)
 class GarminService:
     """Service for interacting with Garmin Connect API."""
 
-    def __init__(self):
+    def __init__(self, db: Optional[AsyncSession] = None):
+        self.db = db
         self.username = os.getenv("GARMIN_USERNAME")
         self.password = os.getenv("GARMIN_PASSWORD")
+        logger.debug(f"GarminService initialized with username: {self.username is not None}, password: {self.password is not None}")
         self.client: Optional[garth.Client] = None
-        self.session_dir = "/app/data/sessions"
+        self.session_dir = Path("data/sessions")
 
         # Ensure session directory exists
-        os.makedirs(self.session_dir, exist_ok=True)
+        self.session_dir.mkdir(parents=True, exist_ok=True)
 
     async def authenticate(self) -> bool:
         """Authenticate with Garmin Connect and persist session."""
@@ -26,14 +31,18 @@ class GarminService:
 
         try:
             # Try to load existing session
-            self.client.load(self.session_dir)
+            await asyncio.to_thread(self.client.load, self.session_dir)
             logger.info("Loaded existing Garmin session")
             return True
-        except Exception:
+        except Exception as e:
+            logger.warning(f"Failed to load existing Garmin session: {e}. Attempting fresh authentication.")
             # Fresh authentication required
+            if not self.username or not self.password:
+                logger.error("Garmin username or password not set in environment variables.")
+                raise GarminAuthError("Garmin username or password not configured.")
             try:
-                await self.client.login(self.username, self.password)
-                self.client.save(self.session_dir)
+                await asyncio.to_thread(self.client.login, self.username, self.password)
+                await asyncio.to_thread(self.client.save, self.session_dir)
                 logger.info("Successfully authenticated with Garmin Connect")
                 return True
             except Exception as e:
@@ -49,7 +58,7 @@ class GarminService:
             start_date = datetime.now() - timedelta(days=7)
 
         try:
-            activities = self.client.get_activities(limit=limit, start=start_date)
+            activities = await asyncio.to_thread(self.client.get_activities, limit=limit, start=start_date)
             logger.info(f"Fetched {len(activities)} activities from Garmin")
             return activities
         except Exception as e:
@@ -62,7 +71,7 @@ class GarminService:
             await self.authenticate()
 
         try:
-            details = self.client.get_activity(activity_id)
+            details = await asyncio.to_thread(self.client.get_activity, activity_id)
             logger.info(f"Fetched details for activity {activity_id}")
             return details
         except Exception as e:

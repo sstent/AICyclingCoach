@@ -7,8 +7,9 @@ import os
 from pathlib import Path
 
 # Add backend directory to path
-backend_dir = Path(__file__).parent.parent
-sys.path.insert(0, str(backend_dir))
+# Add project root to path for alembic
+project_root = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(project_root))
 
 # Import base and models
 from backend.app.models.base import Base
