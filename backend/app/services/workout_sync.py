@@ -2,8 +2,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
 from backend.app.services.garmin import GarminService, GarminAPIError, GarminAuthError
 from backend.app.models.workout import Workout
-from backend.app.models.garmin_sync_log import GarminSyncLog
-from backend.app.models.garmin_sync_log import GarminSyncLog
+from backend.app.models.garmin_sync_log import GarminSyncLog, GarminSyncStatus
 from datetime import datetime, timedelta
 import logging
 from typing import Dict, Any
@@ -63,7 +62,7 @@ class WorkoutSyncService:
                 synced_count += 1
 
             # Update sync log
-            sync_log.status = "success"
+            sync_log.status = GarminSyncStatus.COMPLETED
             sync_log.activities_synced = synced_count
             sync_log.last_sync_time = datetime.now()
 
@@ -72,19 +71,19 @@ class WorkoutSyncService:
             return synced_count
 
         except GarminAuthError as e:
-            sync_log.status = "auth_error"
+            sync_log.status = GarminSyncStatus.AUTH_FAILED
             sync_log.error_message = str(e)
             await self.db.commit()
             logger.error(f"Garmin authentication failed: {str(e)}")
             raise
         except GarminAPIError as e:
-            sync_log.status = "api_error"
+            sync_log.status = GarminSyncStatus.FAILED
             sync_log.error_message = str(e)
             await self.db.commit()
             logger.error(f"Garmin API error during sync: {str(e)}")
             raise
         except Exception as e:
-            sync_log.status = "error"
+            sync_log.status = GarminSyncStatus.FAILED
             sync_log.error_message = str(e)
             await self.db.commit()
             logger.error(f"Unexpected error during sync: {str(e)}")
@@ -104,7 +103,7 @@ class WorkoutSyncService:
         result = await self.db.execute(
             select(Workout).where(Workout.garmin_activity_id == garmin_activity_id)
         )
-        return (await result.scalar_one_or_none()) is not None
+        return result.scalar_one_or_none() is not None  # Remove the await here
 
     async def parse_activity_data(self, activity: Dict[str, Any]) -> Dict[str, Any]:
         """Parse Garmin activity data into workout model format."""
