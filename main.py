@@ -148,8 +148,14 @@ class CyclingCoachApp(App):
 
     async def on_mount(self) -> None:
         """Initialize the application when mounted."""
-        # Set initial active navigation
+        sys.stdout.write("CyclingCoachApp.on_mount: START\n")
+        # Set initial active navigation and tab
         self.query_one("#nav-dashboard").add_class("-active")
+        tabs = self.query_one("#main-tabs", TabbedContent)
+        if tabs:
+            tabs.active = "dashboard-tab"
+            sys.stdout.write("CyclingCoachApp.on_mount: Activated dashboard-tab\n")
+        sys.stdout.write("CyclingCoachApp.on_mount: END\n")
 
     async def on_button_pressed(self, event: Button.Pressed) -> None:
         """Handle navigation button presses."""

@@ -148,3 +148,64 @@ class WorkoutService:
             
         except Exception as e:
             raise Exception(f"Error fetching workout {workout_id}: {str(e)}")
+
+    async def get_sync_status(self) -> Dict:
+        """Get the latest Garmin sync status."""
+        sync_service = WorkoutSyncService(self.db)
+        latest_sync = await sync_service.get_latest_sync_status()
+        if not latest_sync:
+            return {"status": "not_available", "last_sync_time": None}
+        return {
+            "status": latest_sync.status,
+            "last_sync_time": latest_sync.last_sync_time.isoformat() if latest_sync.last_sync_time else None,
+            "activities_synced": latest_sync.activities_synced,
+            "error_message": latest_sync.error_message,
+        }
+
+    async def get_workout_analyses(self, workout_id: int) -> List[Dict]:
+        """Get all analyses for a specific workout."""
+        result = await self.db.execute(
+            select(Analysis).where(Analysis.workout_id == workout_id).order_by(desc(Analysis.created_at))
+        )
+        analyses = result.scalars().all()
+        return [
+            {
+                "id": a.id,
+                "analysis_type": a.analysis_type,
+                "feedback": a.feedback,
+                "suggestions": a.suggestions,
+                "created_at": a.created_at.isoformat(),
+                "approved": a.approved,
+            }
+            for a in analyses
+        ]
+
+    async def sync_garmin_activities(self, days_back: int = 7) -> Dict:
+        """Sync Garmin activities."""
+        try:
+            sync_service = WorkoutSyncService(self.db)
+            synced_count = await sync_service.sync_recent_activities(days_back=days_back)
+            return {"status": "success", "activities_synced": synced_count}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
+    async def analyze_workout(self, workout_id: int) -> Dict:
+        """Trigger AI analysis for a workout."""
+        try:
+            ai_service = AIService(self.db)
+            analysis = await ai_service.analyze_workout(workout_id)
+            return {"status": "success", "message": f"Analysis created with ID: {analysis.id}"}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
+    async def approve_analysis(self, analysis_id: int) -> Dict:
+        """Approve a workout analysis."""
+        try:
+            analysis = await self.db.get(Analysis, analysis_id)
+            if not analysis:
+                raise Exception("Analysis not found")
+            analysis.approved = True
+            await self.db.commit()
+            return {"status": "success", "message": "Analysis approved."}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}

@@ -217,6 +217,7 @@ class WorkoutView(BaseView):
     
     def compose(self) -> ComposeResult:
         """Create workout view layout."""
+        sys.stdout.write("WorkoutView.__init__: Instantiated\n")
         sys.stdout.write("WorkoutView.compose: START\n")
         yield Static("Workout Management", classes="view-title")
         
@@ -245,6 +246,7 @@ class WorkoutView(BaseView):
         """Load workout data when mounted."""
         sys.stdout.write("WorkoutView.on_mount: START\n")
         self.loading = True
+        sys.stdout.write("WorkoutView.on_mount: Calling load_data\n")
         self.load_data()
         sys.stdout.write("WorkoutView.on_mount: END\n")
 
@@ -266,13 +268,14 @@ class WorkoutView(BaseView):
             """Public method to trigger data loading for the workout view."""
             sys.stdout.write("WorkoutView.load_data: START\n")
             self.loading = True
+            sys.stdout.write("WorkoutView.load_data: Before run_async\n")
             self.run_async(
                 self._async_wrapper(
                     self._load_workouts_with_timeout(),
                     self.on_workouts_loaded
                 )
             )
-            sys.stdout.write("WorkoutView.load_data: END\n")
+            sys.stdout.write("WorkoutView.load_data: After run_async - END\n")
 
     async def _load_workouts_data(self) -> tuple[list, dict]:
         """Load workouts and sync status (async worker)."""
@@ -285,8 +288,9 @@ class WorkoutView(BaseView):
                 sys.stdout.write("WorkoutView._load_workouts_data: Before get_workouts\n")
                 workouts = await workout_service.get_workouts(limit=50)
                 sys.stdout.write("WorkoutView._load_workouts_data: After get_workouts\n")
+                sys.stdout.write("WorkoutView._load_workouts_data: Before await get_sync_status\n")
                 sync_status = await workout_service.get_sync_status()
-                sys.stdout.write("WorkoutView._load_workouts_data: After get_sync_status\n")
+                sys.stdout.write("WorkoutView._load_workouts_data: After await get_sync_status\n")
                 self.log(f"Workouts data loaded: {len(workouts)} workouts, sync status: {sync_status}")
                 sys.stdout.write("WorkoutView._load_workouts_data: Before return\n")
                 return workouts, sync_status
