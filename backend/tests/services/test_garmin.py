@@ -1,7 +1,7 @@
 import os
 from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
-from backend.app.services.garmin import GarminService, GarminAuthError, GarminAPIError
+from backend.app.services.garmin import GarminConnectService as GarminService, GarminAuthError, GarminAPIError
 from backend.app.models.garmin_sync_log import GarminSyncStatus
 from datetime import datetime, timedelta
 import garth # Import garth for type hinting
@@ -11,13 +11,12 @@ def mock_env_vars():
     with patch.dict(os.environ, {"GARMIN_USERNAME": "test_user", "GARMIN_PASSWORD": "test_password"}):
         yield
 
-def create_garth_client_mock():
-    mock_client_instance = MagicMock(spec=garth.Client)
-    mock_client_instance.login = AsyncMock(return_value=True)
+def create_garmin_client_mock():
+    mock_client_instance = MagicMock(spec=GarminService) # Use GarminService (which is GarminConnectService)
+    mock_client_instance.authenticate = AsyncMock(return_value=True)
     mock_client_instance.get_activities = AsyncMock(return_value=[])
-    mock_client_instance.get_activity = AsyncMock(return_value={})
-    mock_client_instance.load = AsyncMock(side_effect=FileNotFoundError)
-    mock_client_instance.save = AsyncMock()
+    mock_client_instance.get_activity_details = AsyncMock(return_value={})
+    mock_client_instance.is_authenticated = MagicMock(return_value=True)
     return mock_client_instance
 
 @pytest.mark.asyncio

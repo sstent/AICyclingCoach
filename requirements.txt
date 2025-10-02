@@ -19,7 +19,7 @@ gpxpy  # GPX parsing library
 aiosqlite==0.20.0  # Async SQLite driver
 
 # External integrations
-garth==0.4.46  # Garmin Connect API client
+garminconnect # Using python-garminconnect
 httpx==0.25.2  # Async HTTP client for OpenRouter API
 
 # Testing

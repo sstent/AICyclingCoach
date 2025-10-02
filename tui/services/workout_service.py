@@ -2,6 +2,7 @@
 Enhanced workout service with debugging for TUI application.
 """
 from typing import Dict, List, Optional
+import logging
 from sqlalchemy import select, desc, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -10,6 +11,8 @@ from backend.app.models.analysis import Analysis
 from backend.app.models.garmin_sync_log import GarminSyncLog
 from backend.app.services.workout_sync import WorkoutSyncService
 from backend.app.services.ai_service import AIService
+
+logger = logging.getLogger(__name__)
 
 
 class WorkoutService:
@@ -182,11 +185,14 @@ class WorkoutService:
 
     async def sync_garmin_activities(self, days_back: int = 7) -> Dict:
         """Sync Garmin activities."""
+        logger.debug(f"Initiating Garmin activity sync from TUI with days_back={days_back}.")
         try:
             sync_service = WorkoutSyncService(self.db)
             synced_count = await sync_service.sync_recent_activities(days_back=days_back)
+            logger.info(f"Garmin activity sync completed successfully from TUI. Synced {synced_count} activities.")
             return {"status": "success", "activities_synced": synced_count}
         except Exception as e:
+            logger.error(f"Garmin activity sync failed from TUI: {e}", exc_info=True)
             return {"status": "error", "message": str(e)}
 
     async def analyze_workout(self, workout_id: int) -> Dict:

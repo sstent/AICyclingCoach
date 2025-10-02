@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from backend.app.services.garmin import GarminService, GarminAuthError, GarminAPIError
+from backend.app.services.garmin import GarminConnectService as GarminService, GarminAuthError, GarminAPIError
 from backend.app.services.workout_sync import WorkoutSyncService
 from backend.app.models.workout import Workout
 from backend.app.models.garmin_sync_log import GarminSyncLog
@@ -36,12 +36,12 @@ class TestGarminAuthentication:
         'GARMIN_USERNAME': 'test@example.com',
         'GARMIN_PASSWORD': 'testpass123'
     })
-    @patch('garth.Client')
+    @patch('garminconnect.Garmin')
     async def test_successful_authentication(self, mock_client_class, garmin_service):
         """Test successful authentication with valid credentials."""
         # Setup mock client
         mock_client = MagicMock()
-        mock_client.login = AsyncMock(return_value=True)
+        mock_client.login = AsyncMock(return_value=(None, None))
         mock_client.save = MagicMock()
         mock_client_class.return_value = mock_client
 
@@ -56,7 +56,7 @@ class TestGarminAuthentication:
         'GARMIN_USERNAME': 'invalid@example.com',
         'GARMIN_PASSWORD': 'wrongpass'
     })
-    @patch('garth.Client')
+    @patch('garminconnect.Garmin')
     async def test_failed_authentication(self, mock_client_class, garmin_service):
         """Test authentication failure with invalid credentials."""
         # Setup mock client to raise exception
@@ -72,21 +72,20 @@ class TestGarminAuthentication:
         'GARMIN_USERNAME': 'test@example.com',
         'GARMIN_PASSWORD': 'testpass123'
     })
-    @patch('garth.Client')
+    @patch('garminconnect.Garmin')
     async def test_session_reuse(self, mock_client_class, garmin_service):
         """Test that existing sessions are reused."""
         # Setup mock client with load method
         mock_client = MagicMock()
-        mock_client.load = MagicMock(return_value=True)
-        mock_client.login = AsyncMock()  # Should not be called
+        mock_client.login = AsyncMock(return_value=(None, None)) # Login handles loading from tokenstore
         mock_client_class.return_value = mock_client
 
         # Test authentication
         result = await garmin_service.authenticate()
 
         assert result is True
-        mock_client.load.assert_called_once()
-        mock_client.login.assert_not_awaited()
+        mock_client.login.assert_awaited_once_with(tokenstore=garmin_service.session_dir)
+        mock_client.save.assert_not_called()
 
 
 class TestWorkoutSyncing:
@@ -96,7 +95,7 @@ class TestWorkoutSyncing:
         'GARMIN_USERNAME': 'test@example.com',
         'GARMIN_PASSWORD': 'testpass123'
     })
-    @patch('garth.Client')
+    @patch('garminconnect.Garmin')
     async def test_successful_sync_recent_activities(self, mock_client_class, workout_sync_service, db_session):
         """Test successful synchronization of recent activities."""
         # Setup mock Garmin client
@@ -136,8 +135,8 @@ class TestWorkoutSyncing:
             'elevationGain': 500.0
         }
 
-        mock_client.get_activities = MagicMock(return_value=mock_activities)
-        mock_client.get_activity = MagicMock(return_value=mock_details)
+        mock_client.get_activities_by_date = MagicMock(return_value=mock_activities)
+        mock_client.get_activity_details = MagicMock(return_value=mock_details)
         mock_client_class.return_value = mock_client
 
         # Test sync
@@ -198,7 +197,7 @@ class TestWorkoutSyncing:
             }
         ]
 
-        mock_client.get_activities = MagicMock(return_value=mock_activities)
+        mock_client.get_activities_by_date = MagicMock(return_value=mock_activities)
         mock_client_class.return_value = mock_client
 
         # Test sync
@@ -210,7 +209,7 @@ class TestWorkoutSyncing:
         'GARMIN_USERNAME': 'invalid@example.com',
         'GARMIN_PASSWORD': 'wrongpass'
     })
-    @patch('garth.Client')
+    @patch('garminconnect.Garmin')
     async def test_sync_with_auth_failure(self, mock_client_class, workout_sync_service, db_session):
         """Test sync failure due to authentication error."""
         # Setup mock client to fail authentication
@@ -234,14 +233,14 @@ class TestWorkoutSyncing:
         'GARMIN_USERNAME': 'test@example.com',
         'GARMIN_PASSWORD': 'testpass123'
     })
-    @patch('garth.Client')
+    @patch('garminconnect.Garmin')
     async def test_sync_with_api_error(self, mock_client_class, workout_sync_service, db_session):
         """Test sync failure due to API error."""
         # Setup mock client
         mock_client = MagicMock()
         mock_client.login = AsyncMock(return_value=True)
         mock_client.save = MagicMock()
-        mock_client.get_activities = MagicMock(side_effect=Exception("API rate limit exceeded"))
+        mock_client.get_activities_by_date = MagicMock(side_effect=Exception("API rate limit exceeded"))
         mock_client_class.return_value = mock_client
 
         # Test sync
@@ -265,7 +264,7 @@ class TestErrorHandling:
         'GARMIN_USERNAME': 'test@example.com',
         'GARMIN_PASSWORD': 'testpass123'
     })
-    @patch('garth.Client')
+    @patch('garminconnect.Garmin')
     async def test_activity_detail_fetch_retry(self, mock_client_class, workout_sync_service, db_session):
         """Test retry logic when fetching activity details fails."""
         # Setup mock client
@@ -283,9 +282,9 @@ class TestErrorHandling:
             }
         ]
 
-        mock_client.get_activities = MagicMock(return_value=mock_activities)
+        mock_client.get_activities_by_date = MagicMock(return_value=mock_activities)
         # First two calls fail, third succeeds
-        mock_client.get_activity = MagicMock(side_effect=[
+        mock_client.get_activity_details = MagicMock(side_effect=[
             Exception("Temporary error"),
             Exception("Temporary error"),
             {
@@ -305,4 +304,4 @@ class TestErrorHandling:
 
         assert synced_count == 1
         # Verify get_activity was called 3 times (initial + 2 retries)
-        assert mock_client.get_activity.call_count == 3
+        assert mock_client.get_activity_details.call_count == 3

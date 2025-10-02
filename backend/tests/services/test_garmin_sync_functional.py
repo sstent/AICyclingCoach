@@ -5,7 +5,7 @@ from sqlalchemy.pool import StaticPool
 from sqlalchemy import select
 from backend.app.database import Base
 from backend.app.services.workout_sync import WorkoutSyncService
-from backend.app.services.garmin import GarminService, GarminAPIError, GarminAuthError
+from backend.app.services.garmin import GarminConnectService as GarminService, GarminAPIError, GarminAuthError
 from backend.app.models.workout import Workout
 from backend.app.models.garmin_sync_log import GarminSyncLog, GarminSyncStatus
 from datetime import datetime, timedelta

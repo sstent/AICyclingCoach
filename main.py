@@ -11,6 +11,7 @@ from pathlib import Path
 import sys
 from typing import Optional
 from datetime import datetime
+import os
 
 from textual.app import App, ComposeResult
 from textual.containers import Container, Horizontal, Vertical
@@ -83,7 +84,7 @@ class CyclingCoachApp(App):
         self.current_view = "dashboard"
         self._setup_logging()
     
-    def _setup_logging(self):
+    def _setup_logging(self, level=logging.INFO):
         """Configure logging for the TUI application."""
         # Create logs directory
         logs_dir = Path("logs")
@@ -91,7 +92,7 @@ class CyclingCoachApp(App):
         
         # Set up logger
         logger = logging.getLogger("cycling_coach")
-        logger.setLevel(logging.INFO)
+        logger.setLevel(level)
         
         # Add Textual handler for TUI-compatible logging
         textual_handler = TextualHandler()
@@ -109,7 +110,6 @@ class CyclingCoachApp(App):
     
     def compose(self) -> ComposeResult:
         """Create the main application layout."""
-        sys.stdout.write("CyclingCoachApp.compose: START\n")
         yield Header()
         
         with Container():
@@ -144,18 +144,14 @@ class CyclingCoachApp(App):
                             yield RouteView(id="route-view")
         
         yield Footer()
-        sys.stdout.write("CyclingCoachApp.compose: END\n")
 
     async def on_mount(self) -> None:
         """Initialize the application when mounted."""
-        sys.stdout.write("CyclingCoachApp.on_mount: START\n")
         # Set initial active navigation and tab
         self.query_one("#nav-dashboard").add_class("-active")
         tabs = self.query_one("#main-tabs", TabbedContent)
         if tabs:
             tabs.active = "dashboard-tab"
-            sys.stdout.write("CyclingCoachApp.on_mount: Activated dashboard-tab\n")
-        sys.stdout.write("CyclingCoachApp.on_mount: END\n")
 
     async def on_button_pressed(self, event: Button.Pressed) -> None:
         """Handle navigation button presses."""
@@ -186,28 +182,45 @@ class CyclingCoachApp(App):
 
     @on(TabbedContent.TabActivated)
     async def on_tab_activated(self, event: TabbedContent.TabActivated) -> None:
-        sys.stdout.write(f"CyclingCoachApp.on_tab_activated: Tab {event.pane.id} activated\n")
         """Handle tab activation to load data for the active tab."""
         if event.pane.id == "workouts-tab":
             workout_view = self.query_one("#workout-view", WorkoutView)
-            sys.stdout.write("CyclingCoachApp.on_tab_activated: Calling workout_view.load_data()\n")
             workout_view.load_data()
 
     def action_quit(self) -> None:
         self.exit()
 
 async def init_db_async():
+    logger = logging.getLogger("cycling_coach")
     try:
         await init_db()
-        sys.stdout.write("Database initialized successfully\n")
+        logger.info("Database initialized successfully")
     except Exception as e:
-        sys.stdout.write(f"Database initialization failed: {e}\n")
+        logger.error(f"Database initialization failed: {e}")
+        sys.exit(1)
+
+async def sync_garmin_activities_cli():
+    """Sync Garmin activities in CLI format without starting TUI."""
+    logger = logging.getLogger("cycling_coach")
+    try:
+        logger.info("Initializing database for Garmin sync...")
+        await init_db_async()
+        
+        logger.info("Starting Garmin activity sync...")
+        async with AsyncSessionLocal() as db:
+            workout_service = WorkoutService(db)
+            await workout_service.sync_garmin_activities()
+        logger.info("Garmin activity sync completed successfully.")
+    except Exception as e:
+        logger.error(f"Error during Garmin activity sync: {e}")
         sys.exit(1)
 
 async def list_workouts_cli():
     """Display workouts in CLI format without starting TUI."""
+    logger = logging.getLogger("cycling_coach")
     try:
         # Initialize database
+        logger.info("Initializing database for listing workouts...")
         await init_db_async()
 
         # Get workouts using WorkoutService
@@ -216,14 +229,14 @@ async def list_workouts_cli():
             workouts = await workout_service.get_workouts(limit=50)
 
         if not workouts:
-            print("No workouts found.")
+            logger.info("No workouts found.")
             return
 
         # Print header
-        print("AI Cycling Coach - Workouts")
-        print("=" * 80)
-        print(f"{'Date':<12} {'Type':<15} {'Duration':<10} {'Distance':<10} {'Avg HR':<8} {'Avg Power':<10}")
-        print("-" * 80)
+        logger.info("AI Cycling Coach - Workouts")
+        logger.info("=" * 80)
+        logger.info(f"{'Date':<12} {'Type':<15} {'Duration':<10} {'Distance':<10} {'Avg HR':<8} {'Avg Power':<10}")
+        logger.info("-" * 80)
 
         # Print each workout
         for workout in workouts:
@@ -257,12 +270,12 @@ async def list_workouts_cli():
             if workout.get("avg_power"):
                 power_str = f"{workout['avg_power']} W"
 
-            print(f"{date_str:<12} {workout.get('activity_type', 'Unknown')[:14]:<15} {duration_str:<10} {distance_str:<10} {hr_str:<8} {power_str:<10}")
+            logger.info(f"{date_str:<12} {workout.get('activity_type', 'Unknown')[:14]:<15} {duration_str:<10} {distance_str:<10} {hr_str:<8} {power_str:<10}")
 
-        print(f"\nTotal workouts: {len(workouts)}")
+        logger.info(f"\nTotal workouts: {len(workouts)}")
 
     except Exception as e:
-        print(f"Error listing workouts: {e}")
+        logger.error(f"Error listing workouts: {e}")
         sys.exit(1)
 
 def main():
@@ -270,12 +283,30 @@ def main():
     parser = argparse.ArgumentParser(description="AI Cycling Coach - Terminal Training Interface")
     parser.add_argument("--list-workouts", action="store_true",
                        help="List all workouts in CLI format and exit")
+    parser.add_argument("--sync-garmin", action="store_true",
+                       help="Sync Garmin activities and exit")
+    parser.add_argument("--debug", action="store_true", help="Enable debug logging")
 
     args = parser.parse_args()
+    
+    log_level = logging.DEBUG if args.debug else logging.INFO
 
     # Handle CLI commands that don't need TUI
-    if args.list_workouts:
-        asyncio.run(list_workouts_cli())
+    if args.list_workouts or args.sync_garmin:
+        # Configure logging using the app's setup
+        app = CyclingCoachApp()
+        app._setup_logging(level=log_level)
+        
+        # Get the configured logger
+        cli_logger = logging.getLogger("cycling_coach")
+
+        if args.list_workouts:
+            asyncio.run(list_workouts_cli())
+        elif args.sync_garmin:
+            asyncio.run(sync_garmin_activities_cli())
+        
+        # Exit gracefully after CLI commands
+        return
         return
 
     # Create data directory if it doesn't exist
@@ -288,11 +319,8 @@ def main():
     asyncio.run(init_db_async())
 
     # Run the TUI application
-    sys.stdout.write("main(): Initializing CyclingCoachApp\n")
-    app = CyclingCoachApp()
-    sys.stdout.write("main(): CyclingCoachApp initialized. Running app.run()\n")
+    # Run the TUI application
     app.run()
-    sys.stdout.write("main(): app.run() finished.\n")
 
 
 if __name__ == "__main__":
